@@ -49,21 +49,7 @@ W ramach pliku `queries.sql` zaplanowano wdrożenie następujących mechanizmów
 - **Procedura składowana i transakcje:** procedura `ZlozZamowienie(klient_ID, lek_ID, ilosc, platnosc)`, która w ramach transakcji (`BEGIN TRANSACTION`) sprawdza dostępność leku w tabeli `Magazyn`, dodaje wpis w `Zamowienie` oraz `Zamowienie_Lek`, pomniejsza pole `pozostalo` i zatwierdza operację (`COMMIT`) lub wycofuje ją (`ROLLBACK`) w przypadku braku wystarczającej liczby opakowań.
 - **Wyzwalacze (Triggers):** trigger `trg_Zamowienie_Aktualizacja` typu `BEFORE UPDATE` na tabeli `Zamowienie`, który automatycznie ustawia kolumnę `aktualizacja` na bieżący znacznik czasu (`CURRENT_TIMESTAMP`) przy każdej zmianie statusu realizacji lub płatności.
 
-## 5. Podział ról i zadań w zespole projektowym
-Zgodnie z wytycznymi projektowymi przygotowano podział obowiązków dostosowany do liczebności grupy (do ostatecznego przypisania imiennego wewnątrz zespołu).
-
-**Wariant A -- Podział dla zespołu 3-osobowego:**
-- **Osoba A -- Analityk / Inżynier Wymagań [Imię i Nazwisko]:** analiza procesów sprzedaży w aptece, zdefiniowanie słownika pojęć i reguł biznesowych (np. brak możliwości zakupu leku przy zerowym stanie w tabeli `Magazyn`), opracowanie modelu koncepcyjnego oraz specyfikacji przypadków użycia i raportów.
-- **Osoba B -- Projektant Danych / Architekt ERD [Imię i Nazwisko]:** opracowanie docelowego diagramu ERD (`WykresERD.png`), weryfikacja spełnienia wymogów 1NF, 2NF i 3NF, dobór fizycznych typów danych oraz zdefiniowanie inwentarza relacji i reguł referencyjnych (`ON DELETE`, `ON UPDATE`).
-- **Osoba C -- Inżynier Implementacji i Optymalizacji [Imię i Nazwisko]:** napisanie skryptów DDL tworzących tabele, widoki i indeksy, przygotowanie skryptów zasilających bazę danymi testowymi (Seed Data), implementacja procedur składowanych, triggerów, transakcji oraz konfiguracja uprawnień.
-
-**Wariant B -- Podział dla zespołu 4-osobowego:**
-- **Osoba 1 -- Architekt baz danych (DB Designer) [Imię i Nazwisko]:** projekt koncepcyjny i logiczny, finalizacja diagramu ERD, uzasadnienie normalizacji do 3NF oraz napisanie skryptów DDL tworzących strukturę tabel i kluczy obcych.
-- **Osoba 2 -- Programista SQL (Query & Logic Engineer) [Imię i Nazwisko]:** implementacja zaawansowanych zapytań analitycznych (`JOIN`, `GROUP BY`, podzapytania), widoków, procedury realizacji zamówienia oraz wyzwalaczy i transakcji w pliku `queries.sql`.
-- **Osoba 3 -- Integrator / Programista aplikacji [Imię i Nazwisko]:** budowa warstwy komunikacji z bazą danych oraz interfejsu użytkownika obsługującego pełny cykl operacji CRUD na tabelach `Klient`, `Zamowienie`, `Lek` oraz `Magazyn`.
-- **Osoba 4 -- Tester i Kierownik Projektu (QA & PM) [Imię i Nazwisko]:** przygotowanie zestawów danych początkowych (skrypty DML `INSERT`), testy więzów integralności i transakcji, administracja repozytorium GitHub/GitLab oraz redakcja dokumentacji i prezentacji końcowej.
-
-## 6. Harmonogram realizacji i kryteria oceny
+## 5. Harmonogram realizacji i kryteria oceny
 1. **Faza I (Październik -- Listopad):** zatwierdzenie tematu nr 11 („Apteka”), prezentacja planu działania, odbiór diagramu ERD, słownika danych oraz weryfikacja trzeciej postaci normalnej (3NF).
 2. **Faza II (Listopad -- Grudzień):** implementacja skryptów DDL oraz wypełnienie wszystkich 5 tabel wysokiej jakości danymi testowymi (Seed Data).
 3. **Faza III (Grudzień -- Styczeń):** implementacja logiki po stronie bazy danych (`queries.sql`: zapytania analityczne, procedury, triggery, transakcje) oraz integracja z aplikacją CRUD.
