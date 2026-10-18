@@ -26,7 +26,7 @@ Poniższa tabela syntetyzuje wszystkie wymagania formalne projektu wraz z zaplan
 ## 3. Architektura bazy danych (Diagram ERD i Słownik Danych)
 Model logiczny bazy danych został zaprojektowany zgodnie z zasadami trzeciej postaci normalnej (3NF): wszystkie atrybuty są atomowe (1NF), zależą w pełni od klucza głównego (2NF -- w tabeli asocjacyjnej `Zamowienie_Lek` atrybut `krotnosc` zależy od złożonego klucza głównego), a w tabelach nie występują zależności przechodnie między atrybutami niekluczowych (3NF -- dane klienta, opis leku oraz stan magazynowy są odseparowane od nagłówka zamówienia).
 
-![[WykresERD 1.png]]
+![WykresERD](WykresERD.png)
 
 **Wstępny słownik danych (na podstawie opracowanego schematu ERD):**
 
