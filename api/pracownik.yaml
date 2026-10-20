@@ -1,17 +1,17 @@
 openapi: 3.0.3
 info:
-  title: User Service API
+  title: Pracownik Service API
   version: 1.0.0
-  description: Proste API do zarządzania użytkownikami z autoryzacją.
+  description: Proste API do zarządzania pracownikami z autoryzacją.
 
 # Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
 security:
   - bearerAuth: []
 
 paths:
-  /uzytkownik:
+  /pracownik:
     get:
-      summary: 'pobranie listy uzytkownikow'
+      summary: 'pobranie listy pracownikow'
       operationId: list
       responses:
         '200':
@@ -21,38 +21,38 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Uzytkownik'
+                  $ref: '#/components/schemas/Pracownik'
         '401':
           description: nie autoryzowany
         '500':
           description: wewnetrzny blad przetwarzania
     post:
-      operationId: createUser
-      summary: Utworzenie uzytkownika
-      description: Pobiera login oraz haslo uzytkownika (rejestracja)
+      operationId: createPracownik
+      summary: Utworzenie pracownika
+      description: Pobiera login oraz haslo pracownika (rejestracja)
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UtworzenieUzytkownika'
+              $ref: '#/components/schemas/UtworzeniePracownika'
       responses:
         '201':
-          description: 'Utworzono uzytkownika'
+          description: 'Utworzono pracownika'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Uzytkownik'
+                $ref: '#/components/schemas/Pracownik'
         '400':
           description: błędne dane
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /uzytkownik/login:
+  /pracownik/login:
     post:
-      operationId: loginUser
-      summary: Logowanie użytkownika
-      description: Uwierzytelnia użytkownika i zwraca token Bearer JWT.
+      operationId: loginPracownik
+      summary: Logowanie pracownika
+      description: Uwierzytelnia pracownika i zwraca token Bearer JWT.
       security: [] # Logowanie jest publiczne
       requestBody:
         required: true
@@ -74,19 +74,19 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /uzytkownik/{id}:
+  /pracownik/{id}:
     get:
-      summary: 'pobranie uzytkownika'
-      operationId: getUser
+      summary: 'pobranie pracownika'
+      operationId: getPracownik
       parameters:
-        - $ref: '#/components/parameters/userId'
+        - $ref: '#/components/parameters/pracownikId'
       responses:
         '200':
           description: success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Uzytkownik'
+                $ref: '#/components/schemas/Pracownik'
         '401':
           description: nie autoryzowany
         '404':
@@ -94,10 +94,10 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
     delete:
-      summary: 'Usuwanie uzytkownika'
-      operationId: deleteUser
+      summary: 'Usuwanie pracownika'
+      operationId: deletePracownik
       parameters:
-        - $ref: '#/components/parameters/userId'
+        - $ref: '#/components/parameters/pracownikId'
       responses:
         '200':
           description: ok
@@ -108,23 +108,23 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
     put:
-      summary: 'Aktualizacja uzytkownika'
-      operationId: updateUser
+      summary: 'Aktualizacja pracownika'
+      operationId: updatePracownik
       parameters:
-        - $ref: '#/components/parameters/userId'
+        - $ref: '#/components/parameters/pracownikId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UtworzenieUzytkownika'
+              $ref: '#/components/schemas/UtworzeniePracownika'
       responses:
         '200':
           description: success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Uzytkownik'
+                $ref: '#/components/schemas/Pracownik'
         '400':
           description: bledne dane/powtorzony login
         '401':
@@ -140,20 +140,20 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 'Wprowadź token JWT otrzymany z endpointu /uzytkownik/login'
+      description: 'Wprowadź token JWT otrzymany z endpointu /pracownik/login'
 
   parameters:
-    userId:
+    pracownikId:
       name: id
       in: path
       required: true
-      description: 'Uzytkownik ID'
+      description: 'Pracownik ID'
       schema:
         type: integer
         format: int64
 
   schemas:
-    Uzytkownik:
+    Pracownik:
       type: object
       properties:
         id:
@@ -165,7 +165,7 @@ components:
         - id
         - login
 
-    UtworzenieUzytkownika:
+    UtworzeniePracownika:
       type: object
       properties:
         login:
