@@ -1,0 +1,291 @@
+openapi: 3.0.3
+info:
+  title: API Apteki - Zamówienia
+  version: 1.0.0
+  description: Interfejs API do zarządzania zamówieniami (wraz z pozycjami i receptami).
+servers:
+  - url: /api/v1
+
+# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
+security:
+  - bearerAuth: []
+
+paths:
+  /zamowienia:
+    get:
+      summary: Pobranie listy zamówień
+      operationId: listZamowienia
+      parameters:
+        - name: klient_ID
+          in: query
+          required: false
+          description: Filtruje zamówienia wskazanego klienta
+          schema:
+            type: integer
+        - name: zrealizowane
+          in: query
+          required: false
+          description: Filtruje po statusie realizacji (true - zrealizowane, false - niezrealizowane)
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Zamowienie'
+        '401':
+          description: nie autoryzowany
+        '500':
+          description: wewnetrzny blad przetwarzania
+    post:
+      summary: Złożenie nowego zamówienia
+      description: >
+        Tworzy zamówienie wraz z pozycjami. Dla leków z wymagana_Recepta = true
+        pozycja musi zawierać dane recepty.
+      operationId: createZamowienie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaneZamowienia'
+      responses:
+        '201':
+          description: Utworzono zamówienie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zamowienie'
+        '400':
+          description: bledne dane/brak recepty/brak leku na stanie
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono klienta lub leku
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+  /zamowienia/{zamowienie_ID}:
+    parameters:
+      - name: zamowienie_ID
+        in: path
+        required: true
+        description: Unikalny identyfikator zamówienia
+        schema:
+          type: integer
+    get:
+      summary: Pobranie zamówienia
+      operationId: getZamowienie
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zamowienie'
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    put:
+      summary: Aktualizacja zamówienia
+      description: >
+        Aktualizuje płatność, status realizacji oraz pozycje zamówienia
+        (lista pozycji zastępuje dotychczasową).
+      operationId: updateZamowienie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AktualizacjaZamowienia'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zamowienie'
+        '400':
+          description: bledne dane/brak recepty
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    delete:
+      summary: Usuwanie zamówienia
+      operationId: deleteZamowienie
+      responses:
+        '200':
+          description: ok
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Wprowadź token JWT otrzymany z endpointu /klient/login lub /pracownik/login'
+
+  schemas:
+    DaneRecepty:
+      type: object
+      required:
+        - recepta_Numer
+        - data_Wystawienia
+      properties:
+        recepta_Numer:
+          type: string
+          maxLength: 64
+          description: Numer recepty
+          example: '0123456789012345678901234567890123456789'
+        data_Wystawienia:
+          type: string
+          format: date
+          description: Data wystawienia recepty
+          example: '2026-10-15'
+
+    Recepta:
+      allOf:
+        - $ref: '#/components/schemas/DaneRecepty'
+        - type: object
+          required:
+            - recepta_ID
+          properties:
+            recepta_ID:
+              type: integer
+              readOnly: true
+              description: Unikalny identyfikator recepty (PK, Auto-Increment)
+              example: 1
+
+    DanePozycji:
+      type: object
+      required:
+        - lek_ID
+      properties:
+        lek_ID:
+          type: integer
+          description: Identyfikator zamawianego leku
+          example: 1
+        krotnosc:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Liczba zamawianych sztuk
+          example: 2
+        recepta:
+          $ref: '#/components/schemas/DaneRecepty'
+
+    Pozycja:
+      type: object
+      required:
+        - lek_ID
+        - krotnosc
+      properties:
+        lek_ID:
+          type: integer
+          example: 1
+        krotnosc:
+          type: integer
+          example: 2
+        recepta:
+          allOf:
+            - $ref: '#/components/schemas/Recepta'
+          nullable: true
+
+    DaneZamowienia:
+      type: object
+      required:
+        - klient_ID
+        - pozycje
+      properties:
+        klient_ID:
+          type: integer
+          description: Identyfikator klienta składającego zamówienie
+          example: 1
+        platnosc:
+          type: string
+          maxLength: 256
+          description: Informacje o płatności
+          example: 'karta, transakcja 123456'
+        pozycje:
+          type: array
+          minItems: 1
+          description: Pozycje zamówienia (jeden lek może wystąpić tylko raz)
+          items:
+            $ref: '#/components/schemas/DanePozycji'
+
+    AktualizacjaZamowienia:
+      type: object
+      properties:
+        platnosc:
+          type: string
+          maxLength: 256
+          example: 'karta, transakcja 123456'
+        zrealizowane:
+          type: string
+          format: date-time
+          nullable: true
+          description: Data realizacji (null - zamówienie niezrealizowane)
+          example: '2026-10-21T14:30:00Z'
+        pozycje:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DanePozycji'
+
+    Zamowienie:
+      type: object
+      required:
+        - zamowienie_ID
+        - klient_ID
+        - utworzony
+        - aktualizacja
+        - pozycje
+      properties:
+        zamowienie_ID:
+          type: integer
+          readOnly: true
+          description: Unikalny identyfikator zamówienia (PK, Auto-Increment)
+          example: 1
+        klient_ID:
+          type: integer
+          example: 1
+        utworzony:
+          type: string
+          format: date-time
+          readOnly: true
+          example: '2026-10-21T12:00:00Z'
+        aktualizacja:
+          type: string
+          format: date-time
+          readOnly: true
+          example: '2026-10-21T13:15:00Z'
+        zrealizowane:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        platnosc:
+          type: string
+          maxLength: 256
+          nullable: true
+          example: 'karta, transakcja 123456'
+        pozycje:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pozycja'
