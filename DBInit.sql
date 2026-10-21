@@ -13,10 +13,10 @@ kraj varchar(64)
 CREATE TABLE Lek(
 lek_ID INT AUTO_INCREMENT PRIMARY KEY,
 nazwa VARCHAR(32) NOT NULL,
-cena DECIMAL(10,2) NOT NULL,
+cena DECIMAL(10,2) NOT NULL CHECK(cena>=0),
 opis VARCHAR(256) NOT NULL,
 wymagana_Recepta TINYINT DEFAULT 0,
-dostepne INT NOT NULL DEFAULT 0
+dostepne INT NOT NULL DEFAULT 0 CHECK(dostepne>=0)
 );
 CREATE TABLE Zamowienie(
 zamowienie_ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,7 +35,7 @@ CREATE TABLE Zamowienie_Lek(
 zamowienie_ID INT NOT NULL REFERENCES Zamowienie(zamowienie_ID),
 lek_ID INT NOT NULL REFERENCES Lek(lek_ID),
 recepta_ID INT REFERENCES Recepta(recepta_ID),
-krotnosc INT NOT NULL DEFAULT 1,
+krotnosc INT NOT NULL DEFAULT 1 CHECK (krotnosc > 0),
 PRIMARY KEY (zamowienie_ID,lek_ID)
 );
 CREATE TABLE Pracownik(
