@@ -1,0 +1,126 @@
+openapi: 3.0.3
+info:
+  title: API Apteki - Leki
+  version: 1.0.0
+  description: Interfejs API do zarządzania bazą leków.
+servers:
+  - url: /api/v1
+paths:
+  /leki:
+    get:
+      summary: Pobierz listę wszystkich leków
+      operationId: getLeki
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lek'
+    post:
+      summary: Dodaj nowy lek do bazy
+      operationId: addLek
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Lek'
+      responses:
+        '201':
+          description: Utworzono nowy lek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lek'
+        '400':
+          description: Błędne dane wejściowe
+
+  /leki/{lek_ID}:
+    parameters:
+      - name: lek_ID
+        in: path
+        required: true
+        description: Unikalny identyfikator leku
+        schema:
+          type: integer
+    get:
+      summary: Pobierz szczegóły leku
+      operationId: getLekById
+      responses:
+        '200':
+          description: Pomyślnie pobrano lek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lek'
+        '404':
+          description: Nie znaleziono leku o podanym ID
+    put:
+      summary: Zaktualizuj dane istniejącego leku
+      operationId: updateLek
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Lek'
+      responses:
+        '200':
+          description: Pomyślnie zaktualizowano lek
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lek'
+        '404':
+          description: Nie znaleziono leku
+    delete:
+      summary: Usuń lek z bazy
+      operationId: deleteLek
+      responses:
+        '204':
+          description: Pomyślnie usunięto lek
+        '404':
+          description: Nie znaleziono leku
+
+components:
+  schemas:
+    Lek:
+      type: object
+      required:
+        - nazwa
+        - cena
+        - opis
+      properties:
+        lek_ID:
+          type: integer
+          readOnly: true
+          description: Unikalny identyfikator leku (PK, Auto-Increment)
+          example: 1
+        nazwa:
+          type: string
+          maxLength: 32
+          description: Nazwa handlowa leku
+          example: "Paracetamol 500mg"
+        cena:
+          type: number
+          format: float
+          description: Cena leku
+          example: 12.99
+        opis:
+          type: string
+          maxLength: 256
+          description: Szczegółowy opis działania i dawkowania
+          example: "Lek przeciwbólowy i przeciwgorączkowy."
+        wymagana_Recepta:
+          type: boolean
+          default: false
+          description: Czy lek wydawany jest wyłącznie z przepisu lekarza
+          example: false
+        dostepne:
+          type: integer
+          default: 0
+          description: Ilość sztuk aktualnie dostępnych na stanie
+          example: 150
