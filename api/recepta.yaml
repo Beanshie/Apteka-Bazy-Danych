@@ -1,0 +1,161 @@
+openapi: 3.0.3
+info:
+  title: API Apteki - Recepty
+  version: 1.0.0
+  description: Interfejs API do zarządzania receptami.
+servers:
+  - url: /api/v1
+
+# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
+security:
+  - bearerAuth: []
+
+paths:
+  /recepty:
+    get:
+      summary: Pobranie listy recept
+      operationId: listRecepty
+      parameters:
+        - name: recepta_Numer
+          in: query
+          required: false
+          description: Filtruje recepty po numerze
+          schema:
+            type: string
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Recepta'
+        '401':
+          description: nie autoryzowany
+        '500':
+          description: wewnetrzny blad przetwarzania
+    post:
+      summary: Dodanie nowej recepty
+      operationId: createRecepta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaneRecepty'
+      responses:
+        '201':
+          description: Utworzono receptę
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recepta'
+        '400':
+          description: bledne dane
+        '401':
+          description: nie autoryzowany
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+  /recepty/{recepta_ID}:
+    parameters:
+      - name: recepta_ID
+        in: path
+        required: true
+        description: Unikalny identyfikator recepty
+        schema:
+          type: integer
+    get:
+      summary: Pobranie recepty
+      operationId: getRecepta
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recepta'
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    put:
+      summary: Aktualizacja recepty
+      operationId: updateRecepta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaneRecepty'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recepta'
+        '400':
+          description: bledne dane
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    delete:
+      summary: Usuwanie recepty
+      operationId: deleteRecepta
+      responses:
+        '200':
+          description: ok
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '409':
+          description: recepta jest powiązana z pozycją zamówienia
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Wprowadź token JWT otrzymany z endpointu /klient/login lub /pracownik/login'
+
+  schemas:
+    DaneRecepty:
+      type: object
+      required:
+        - recepta_Numer
+        - data_Wystawienia
+      properties:
+        recepta_Numer:
+          type: string
+          maxLength: 64
+          description: Numer recepty
+          example: '0123456789012345678901234567890123456789'
+        data_Wystawienia:
+          type: string
+          format: date
+          description: Data wystawienia recepty
+          example: '2026-10-15'
+
+    Recepta:
+      allOf:
+        - $ref: '#/components/schemas/DaneRecepty'
+        - type: object
+          required:
+            - recepta_ID
+          properties:
+            recepta_ID:
+              type: integer
+              readOnly: true
+              description: Unikalny identyfikator recepty (PK, Auto-Increment)
+              example: 1
