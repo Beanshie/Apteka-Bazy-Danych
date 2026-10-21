@@ -5,11 +5,17 @@ info:
   description: Interfejs API do zarządzania bazą leków.
 servers:
   - url: /api/v1
+
+# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
+security:
+  - bearerAuth: []
+
 paths:
   /leki:
     get:
       summary: Pobierz listę wszystkich leków
       operationId: getLeki
+      security: [] # Lista lekow jest dostepna publicznie
       responses:
         '200':
           description: ok
@@ -19,6 +25,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Lek'
+        '500':
+          description: wewnetrzny blad przetwarzania
     post:
       summary: Dodaj nowy lek do bazy
       operationId: addLek
@@ -27,7 +35,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Lek'
+              $ref: '#/components/schemas/DaneLek'
       responses:
         '201':
           description: Utworzono nowy lek
@@ -37,7 +45,8 @@ paths:
                 $ref: '#/components/schemas/Lek'
         '400':
           description: Błędne dane wejściowe
-
+        '500':
+          description: wewnetrzny blad przetwarzania
   /leki/{lek_ID}:
     parameters:
       - name: lek_ID
@@ -49,6 +58,7 @@ paths:
     get:
       summary: Pobierz szczegóły leku
       operationId: getLekById
+      security: [] # Pobranie leku jest publiczne
       responses:
         '200':
           description: Pomyślnie pobrano lek
@@ -58,6 +68,8 @@ paths:
                 $ref: '#/components/schemas/Lek'
         '404':
           description: Nie znaleziono leku o podanym ID
+        '500':
+          description: wewnetrzny blad przetwarzania
     put:
       summary: Zaktualizuj dane istniejącego leku
       operationId: updateLek
@@ -66,7 +78,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Lek'
+              $ref: '#/components/schemas/DaneLek'
       responses:
         '200':
           description: Pomyślnie zaktualizowano lek
@@ -76,29 +88,25 @@ paths:
                 $ref: '#/components/schemas/Lek'
         '404':
           description: Nie znaleziono leku
-    delete:
-      summary: Usuń lek z bazy
-      operationId: deleteLek
-      responses:
-        '204':
-          description: Pomyślnie usunięto lek
-        '404':
-          description: Nie znaleziono leku
+        '500':
+          description: wewnetrzny blad przetwarzania
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Wprowadź token JWT otrzymany z endpointu /pracownik/login'
+
   schemas:
-    Lek:
+    DaneLek:
       type: object
       required:
         - nazwa
         - cena
         - opis
       properties:
-        lek_ID:
-          type: integer
-          readOnly: true
-          description: Unikalny identyfikator leku (PK, Auto-Increment)
-          example: 1
         nazwa:
           type: string
           maxLength: 32
@@ -122,5 +130,18 @@ components:
         dostepne:
           type: integer
           default: 0
-          description: Ilość sztuk aktualnie dostępnych na stanie
+          description: Liczba aktualnie dostępnych sztuk
           example: 150
+    Lek:
+      allOf:
+        - $ref: "#/components/schemas/DaneLek"
+        - type: object
+        - required:
+          - lek_ID
+          properties:
+            lek_ID:
+              type: integer
+              readOnly: true
+              description: Unikalny identyfikator leku (PK, Auto-Increment)
+              example: 1
+        

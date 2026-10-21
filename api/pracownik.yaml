@@ -3,13 +3,14 @@ info:
   title: Pracownik Service API
   version: 1.0.0
   description: Proste API do zarządzania pracownikami z autoryzacją.
-
+servers:
+  - url: /api/v1
 # Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
 security:
   - bearerAuth: []
 
 paths:
-  /pracownik:
+  /pracownicy:
     get:
       summary: 'pobranie listy pracownikow'
       operationId: list
@@ -75,11 +76,17 @@ paths:
           description: wewnetrzny blad przetwarzania
 
   /pracownik/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 'Pracownik ID'
+        schema:
+          type: integer
+          format: int64
     get:
       summary: 'pobranie pracownika'
       operationId: getPracownik
-      parameters:
-        - $ref: '#/components/parameters/pracownikId'
       responses:
         '200':
           description: success
@@ -96,8 +103,6 @@ paths:
     delete:
       summary: 'Usuwanie pracownika'
       operationId: deletePracownik
-      parameters:
-        - $ref: '#/components/parameters/pracownikId'
       responses:
         '200':
           description: ok
@@ -110,8 +115,6 @@ paths:
     put:
       summary: 'Aktualizacja pracownika'
       operationId: updatePracownik
-      parameters:
-        - $ref: '#/components/parameters/pracownikId'
       requestBody:
         required: true
         content:
@@ -141,16 +144,6 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: 'Wprowadź token JWT otrzymany z endpointu /pracownik/login'
-
-  parameters:
-    pracownikId:
-      name: id
-      in: path
-      required: true
-      description: 'Pracownik ID'
-      schema:
-        type: integer
-        format: int64
 
   schemas:
     Pracownik:
