@@ -35,7 +35,24 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
+		<!-- Walidacja DTO (@Valid, @NotNull) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
 
+		<!-- Adnotacje Jackson (@JsonProperty) -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-annotations</artifactId>
+		</dependency>
+
+		<!-- Adnotacje Swagger (@Schema, @Operation) -->
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-annotations</artifactId>
+			<version>2.2.20</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
@@ -49,6 +66,83 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+				<groupId>org.openapitools</groupId>
+				<artifactId>openapi-generator-maven-plugin</artifactId>
+				<version>7.26.0</version>
+				<!-- Wspólna konfiguracja dla wszystkich plików -->
+				<configuration>
+					<generatorName>spring</generatorName>
+					<output>${project.build.directory}/generated-sources/openapi</output>
+					<addCompileSourceRoot>true</addCompileSourceRoot>
+					<apiPackage>pk.bd.apteka.api</apiPackage>
+					<modelPackage>pk.bd.apteka.dto</modelPackage>
+					<configOptions>
+						<interfaceOnly>true</interfaceOnly>
+						<useSpringBoot3>true</useSpringBoot3>
+						<useJakartaJaxb>true</useJakartaJaxb>
+						<skipDefaultInterface>true</skipDefaultInterface>
+						<openApiNullable>false</openApiNullable>
+					</configOptions>
+				</configuration>
+				<executions>
+					<execution>
+						<id>generate-klient</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/api/klient.yaml</inputSpec>
+						</configuration>
+					</execution>
+					<execution>
+						<id>generate-lek</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/api/lek.yaml</inputSpec>
+						</configuration>
+					</execution>
+					<execution>
+						<id>generate-pracownik</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/api/pracownik.yaml</inputSpec>
+						</configuration>
+					</execution>
+					<execution>
+						<id>generate-recepta</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/api/recepta.yaml</inputSpec>
+						</configuration>
+					</execution>
+					<execution>
+						<id>generate-zamowienie</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/api/zamowienie.yaml</inputSpec>
+						</configuration>
+					</execution>
+					<execution>
+						<id>generate-zamowienie-lek</id>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<inputSpec>${project.basedir}/api/zamowienie_Lek.yaml</inputSpec>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			
 		</plugins>
 	</build>
 
