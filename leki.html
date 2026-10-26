@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katalog Leków - Apteka API</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20">
+                    <!-- Pharmacy Icon -->
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">System Apteczny</h1>
+                    <p class="text-xs text-slate-500">Menedżer Bazy Leków REST API</p>
+                </div>
+            </div>
+
+            <!-- API Status Badge -->
+            <div id="statusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <span>Łączenie z API...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Controls Bar -->
+        <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200/80 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+            
+            <!-- Search Bar -->
+            <div class="relative flex-1">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <input type="text" id="searchInput" placeholder="Szukaj według nazwy, opisu lub ID..." 
+                    class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400"
+                    oninput="handleSearch()">
+            </div>
+
+            <!-- Actions & Mode Switcher -->
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- Source Toggle -->
+                <div class="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
+                    <button id="modeApiBtn" onclick="setMode('api')" class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-slate-800 transition-all">
+                        API Localhost
+                    </button>
+                    <button id="modeMockBtn" onclick="setMode('mock')" class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all">
+                        Dane Demo (Mock)
+                    </button>
+                </div>
+
+                <!-- Refresh Button -->
+                <button onclick="fetchLeki()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-medium text-sm rounded-xl transition-all shadow-sm hover:shadow-md shadow-teal-600/20">
+                    <svg id="refreshSpinner" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Odśwież</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Error & Troubleshooting Box (Hidden by default) -->
+        <div id="errorContainer" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-900 transition-all">
+            <div class="flex items-start gap-4">
+                <div class="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1 space-y-2">
+                    <h3 class="font-semibold text-rose-950">Nie udało się połączyć z API (<code class="text-xs bg-rose-100 px-1.5 py-0.5 rounded font-mono">http://localhost:8080/api/v1/leki</code>)</h3>
+                    <p id="errorMessage" class="text-xs sm:text-sm text-rose-800"></p>
+                    
+                    <div class="pt-2 border-t border-rose-200/80">
+                        <p class="text-xs font-semibold text-rose-900 mb-1.5">Możliwe przyczyny i rozwiązania:</p>
+                        <ul class="text-xs text-rose-800 space-y-1 list-disc pl-4">
+                            <li><strong>Brak konfiguracji CORS w Spring Boot:</strong> Dodaj adnotację <code class="bg-rose-100/80 px-1 rounded font-mono text-rose-900">@CrossOrigin(origins = "*")</code> nad kontrolerem <code class="bg-rose-100/80 px-1 rounded font-mono text-rose-900">LekController</code>.</li>
+                            <li><strong>Aplikacja Spring Boot nie działa:</strong> Upewnij się, że serwer działa na porcie <code class="bg-rose-100/80 px-1 rounded font-mono text-rose-900">8080</code>.</li>
+                            <li><strong>Spring Security blokuje żądanie:</strong> Endpoint zwraca kod statusu 401 lub 403. Wyłącz autoryzację dla ścieżki GET lub przekaż nagłówek Bearer Token.</li>
+                        </ul>
+                    </div>
+
+                    <div class="pt-2">
+                        <button onclick="setMode('mock')" class="text-xs font-medium px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-all">
+                            Przełącz na dane demonstracyjne (Mock)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Data Table Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            
+            <!-- Table Container -->
+            <div class="overflow-x-auto relative min-h-[300px]">
+                
+                <!-- Loading Overlay -->
+                <div id="loadingOverlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-3 transition-opacity">
+                    <div class="w-9 h-9 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-sm font-medium text-slate-600">Pobieranie listy leków...</p>
+                </div>
+
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            <th class="py-3.5 px-4 sm:px-6 w-16">ID</th>
+                            <th class="py-3.5 px-4 sm:px-6">Nazwa leku</th>
+                            <th class="py-3.5 px-4 sm:px-6">Cena</th>
+                            <th class="py-3.5 px-4 sm:px-6">Recepta (Rx)</th>
+                            <th class="py-3.5 px-4 sm:px-6">Dostępność</th>
+                            <th class="py-3.5 px-4 sm:px-6 min-w-[200px]">Opis</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Dynamic rows inserted here -->
+                    </tbody>
+                </table>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden py-16 text-center">
+                    <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                    </div>
+                    <p class="text-slate-700 font-medium">Brak danych do wyświetlenia</p>
+                    <p class="text-xs text-slate-400 mt-1">Spróbuj zmienić zapytanie wyszukiwania lub odświeżyć bazę.</p>
+                </div>
+            </div>
+
+            <!-- Table Footer -->
+            <div class="bg-slate-50/50 px-4 sm:px-6 py-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
+                <span id="recordCount">Wyświetlono 0 pozycji</span>
+                <span class="font-mono text-[11px] text-slate-400">Endpoint: /api/v1/leki</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Configuration & State
+        const API_URL = 'http://localhost:8080/api/v1/leki';
+        let currentMode = 'api'; // 'api' or 'mock'
+        let lekiData = [];
+        let filteredData = [];
+
+        // Mock Fallback Data (matching OpenApi Spec Schema)
+        const MOCK_DATA = [
+            {
+                lek_ID: 1,
+                nazwa: "Paracetamol 500mg",
+                cena: 12.99,
+                wymagana_Recepta: false,
+                dostepne: 150,
+                opis: "Lek przeciwbólowy i przeciwgorączkowy przeznaczony dla dorosłych i młodzieży."
+            },
+            {
+                lek_ID: 2,
+                nazwa: "Amoksycylina 875mg",
+                cena: 34.50,
+                wymagana_Recepta: true,
+                dostepne: 24,
+                opis: "Antybiotyk o szerokim spektrum działania stosowany w zakażeniach bakteryjnych."
+            },
+            {
+                lek_ID: 3,
+                nazwa: "Ibuprofen Forte 400mg",
+                cena: 18.20,
+                wymagana_Recepta: false,
+                dostepne: 5,
+                opis: "Niesteroidowy lek przeciwzapalny (NLPZ) zwalczający ból, gorączkę i stan zapalny."
+            },
+            {
+                lek_ID: 4,
+                nazwa: "Omeprazol 20mg",
+                cena: 22.80,
+                wymagana_Recepta: true,
+                dostepne: 0,
+                opis: "Lek zmniejszający ilość kwasu wydzielanego w żołądku. Stosowany w chorobie refluksowej."
+            },
+            {
+                lek_ID: 5,
+                nazwa: "Witamina C 1000mg",
+                cena: 15.00,
+                wymagana_Recepta: false,
+                dostepne: 88,
+                opis: "Suplement diety wspomagający prawidłowe funkcjonowanie układu odpornościowego."
+            }
+        ];
+
+        // Initialize on page load
+        window.onload = function() {
+            fetchLeki();
+        };
+
+        // Switch Mode (API vs Mock)
+        function setMode(mode) {
+            currentMode = mode;
+            const apiBtn = document.getElementById('modeApiBtn');
+            const mockBtn = document.getElementById('modeMockBtn');
+
+            if (mode === 'api') {
+                apiBtn.className = "px-3 py-1.5 rounded-lg bg-white shadow-sm text-slate-800 transition-all font-semibold";
+                mockBtn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all";
+            } else {
+                mockBtn.className = "px-3 py-1.5 rounded-lg bg-white shadow-sm text-slate-800 transition-all font-semibold";
+                apiBtn.className = "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all";
+            }
+
+            fetchLeki();
+        }
+
+        // Fetch Data from Spring Boot API or Mock
+        async function fetchLeki() {
+            showLoading(true);
+            hideError();
+
+            if (currentMode === 'mock') {
+                // Simulate network latency for mock data
+                setTimeout(() => {
+                    lekiData = [...MOCK_DATA];
+                    updateStatus('mock');
+                    handleSearch();
+                    showLoading(false);
+                }, 300);
+                return;
+            }
+
+            // Live API Call
+            updateStatus('connecting');
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Błąd odpowiedzi HTTP: ${response.status} (${response.statusText})`);
+                }
+
+                const data = await response.json();
+                lekiData = Array.isArray(data) ? data : [data];
+                updateStatus('success');
+                handleSearch();
+
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                updateStatus('error');
+                showError(err.message || "Nie można nawiązać połączenia z serwerem. Sprawdź, czy Spring Boot działa i konfigurację CORS.");
+                lekiData = [];
+                renderTable([]);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Render Table Rows
+        function renderTable(items) {
+            const tbody = document.getElementById('tableBody');
+            const emptyState = document.getElementById('emptyState');
+            const recordCount = document.getElementById('recordCount');
+
+            tbody.innerHTML = '';
+            recordCount.textContent = `Wyświetlono ${items.length} z ${lekiData.length} pozycji`;
+
+            if (!items || items.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            items.forEach(lek => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50/80 transition-colors";
+
+                // Format Currency
+                const priceFormatted = typeof lek.cena === 'number' 
+                    ? lek.cena.toFixed(2).replace('.', ',') + ' zł' 
+                    : (lek.cena || '0,00 zł');
+
+                // Rx Badge
+                const rxBadge = lek.wymagana_Recepta 
+                    ? `<span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                         Rx - Wymagana
+                       </span>`
+                    : `<span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                         Bez recepty (OTC)
+                       </span>`;
+
+                // Stock Badge
+                let stockBadge = '';
+                const qty = lek.dostepne ?? 0;
+                if (qty === 0) {
+                    stockBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        Brak (0 szt.)
+                    </span>`;
+                } else if (qty < 10) {
+                    stockBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Ostatnie ${qty} szt.
+                    </span>`;
+                } else {
+                    stockBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Dostępny (${qty} szt.)
+                    </span>`;
+                }
+
+                row.innerHTML = `
+                    <td class="py-4 px-4 sm:px-6 font-mono text-xs text-slate-400">#${lek.lek_ID}</td>
+                    <td class="py-4 px-4 sm:px-6 font-semibold text-slate-900">${escapeHtml(lek.nazwa)}</td>
+                    <td class="py-4 px-4 sm:px-6 font-medium text-slate-900 whitespace-nowrap">${priceFormatted}</td>
+                    <td class="py-4 px-4 sm:px-6 whitespace-nowrap">${rxBadge}</td>
+                    <td class="py-4 px-4 sm:px-6 whitespace-nowrap">${stockBadge}</td>
+                    <td class="py-4 px-4 sm:px-6 text-slate-600 text-xs leading-relaxed max-w-md truncate" title="${escapeHtml(lek.opis || '')}">
+                        ${escapeHtml(lek.opis || 'Brak opisu')}
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        // Client-side Search / Filtering
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (!query) {
+                filteredData = [...lekiData];
+            } else {
+                filteredData = lekiData.filter(lek => {
+                    const matchName = lek.nazwa && lek.nazwa.toLowerCase().includes(query);
+                    const matchOpis = lek.opis && lek.opis.toLowerCase().includes(query);
+                    const matchId = lek.lek_ID && lek.lek_ID.toString() === query;
+                    return matchName || matchOpis || matchId;
+                });
+            }
+
+            renderTable(filteredData);
+        }
+
+        // Helpers
+        function showLoading(isLoading) {
+            const overlay = document.getElementById('loadingOverlay');
+            const refreshSpinner = document.getElementById('refreshSpinner');
+
+            if (isLoading) {
+                overlay.classList.remove('hidden');
+                refreshSpinner.classList.add('animate-spin');
+            } else {
+                overlay.classList.add('hidden');
+                refreshSpinner.classList.remove('animate-spin');
+            }
+        }
+
+        function showError(msg) {
+            const errBox = document.getElementById('errorContainer');
+            const errText = document.getElementById('errorMessage');
+            errText.textContent = msg;
+            errBox.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('errorContainer').classList.add('hidden');
+        }
+
+        function updateStatus(state) {
+            const badge = document.getElementById('statusBadge');
+            
+            if (state === 'connecting') {
+                badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Łączenie z API...`;
+            } else if (state === 'success') {
+                badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Połączono (Localhost)`;
+            } else if (state === 'mock') {
+                badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500"></span> Tryb Demo (Mock)`;
+            } else if (state === 'error') {
+                badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Błąd połączenia`;
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
