@@ -1,5 +1,6 @@
 package pk.bd.apteka.controller;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -11,10 +12,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
+import pk.bd.apteka.service.LekiService;
 
 @CrossOrigin(origins = "*")
 @RestController
 public class LekiController implements LekiApi {
+
+    @Autowired
+    private LekiService lekiService;
+
     @Override
     public ResponseEntity<Lek> addLek(DaneLek daneLek) {
         return null;
@@ -27,9 +33,7 @@ public class LekiController implements LekiApi {
 
     @Override
     public ResponseEntity<List<Lek>> getLeki() {
-        List<Lek> lista=new ArrayList<>();
-        lista.add(new Lek("Apap",14.23F,"Lek123",13));
-        lista.add(new Lek("Ibuprom",10.23F,"Lek321",18));
+        List<Lek> lista=lekiService.getLeki();
         return ResponseEntity.ok(lista);
     }
 
