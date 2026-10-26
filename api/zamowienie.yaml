@@ -6,10 +6,6 @@ info:
 servers:
   - url: /api/v1
 
-# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
-security:
-  - bearerAuth: []
-
 paths:
   /zamowienia:
     get:
@@ -134,13 +130,6 @@ paths:
           description: wewnetrzny blad przetwarzania
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: 'Wprowadź token JWT otrzymany z endpointu /klient/login lub /pracownik/login'
-
   schemas:
     DaneRecepty:
       type: object

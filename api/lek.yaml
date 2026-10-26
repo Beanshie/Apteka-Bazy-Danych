@@ -6,16 +6,11 @@ info:
 servers:
   - url: /api/v1
 
-# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
-security:
-  - bearerAuth: []
-
 paths:
   /leki:
     get:
       summary: Pobierz listę wszystkich leków
       operationId: getLeki
-      security: [] # Lista lekow jest dostepna publicznie
       responses:
         '200':
           description: ok
@@ -92,13 +87,6 @@ paths:
           description: wewnetrzny blad przetwarzania
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: 'Wprowadź token JWT otrzymany z endpointu /pracownik/login'
-
   schemas:
     DaneLek:
       type: object

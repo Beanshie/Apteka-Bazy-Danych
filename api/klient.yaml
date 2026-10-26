@@ -6,10 +6,6 @@ info:
 servers:
   - url: /api/v1
 
-# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
-security:
-  - bearerAuth: []
-
 paths:
   /klienci:
     get:
@@ -32,7 +28,6 @@ paths:
       summary: Rejestracja klienta
       description: Tworzy konto klienta na podstawie loginu, hasła i opcjonalnych danych adresowych.
       operationId: createKlient
-      security: [] # Rejestracja jest publiczna
       requestBody:
         required: true
         content:
@@ -48,32 +43,6 @@ paths:
                 $ref: '#/components/schemas/Klient'
         '400':
           description: bledne dane/powtorzony login
-        '500':
-          description: wewnetrzny blad przetwarzania
-
-  /klient/login:
-    post:
-      summary: Logowanie klienta
-      description: Uwierzytelnia klienta i zwraca token Bearer JWT.
-      operationId: loginKlient
-      security: [] # Logowanie jest publiczne
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Logowanie'
-      responses:
-        '200':
-          description: Pomyślnie zalogowano
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DaneLogowania'
-        '400':
-          description: Błędny format żądania
-        '401':
-          description: Nieprawidłowy login lub hasło
         '500':
           description: wewnetrzny blad przetwarzania
 
@@ -140,13 +109,6 @@ paths:
           description: wewnetrzny blad przetwarzania
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: 'Wprowadź token JWT otrzymany z endpointu /klient/login'
-
   schemas:
     DaneKlienta:
       type: object
@@ -232,41 +194,3 @@ components:
               format: password
               description: Nowe hasło (jeśli pominięte, hasło nie jest zmieniane)
               example: 'NoweBezpieczneHaslo456!'
-
-    Logowanie:
-      type: object
-      properties:
-        login:
-          type: string
-          example: 'jan_kowalski'
-        haslo:
-          type: string
-          format: password
-          example: 'MojeBezpieczneHaslo123!'
-      required:
-        - login
-        - haslo
-
-    DaneLogowania:
-      type: object
-      properties:
-        token:
-          type: string
-          description: 'Token dostępowy JWT'
-          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-        tokenType:
-          type: string
-          description: 'Typ tokenu autoryzacyjnego'
-          example: 'Bearer'
-        expiresIn:
-          type: integer
-          description: 'Czas ważności tokenu w sekundach'
-          example: 3600
-        refreshToken:
-          type: string
-          description: 'Token służący do odświeżania sesji'
-          example: 'd9b2d63d-a233-4123-bf3a-79111322f1c8'
-      required:
-        - token
-        - tokenType
-        - expiresIn

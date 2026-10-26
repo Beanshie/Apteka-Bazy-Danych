@@ -5,9 +5,6 @@ info:
   description: Proste API do zarządzania pracownikami z autoryzacją.
 servers:
   - url: /api/v1
-# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
-security:
-  - bearerAuth: []
 
 paths:
   /pracownicy:
@@ -46,32 +43,6 @@ paths:
                 $ref: '#/components/schemas/Pracownik'
         '400':
           description: błędne dane
-        '500':
-          description: wewnetrzny blad przetwarzania
-
-  /pracownik/login:
-    post:
-      operationId: loginPracownik
-      summary: Logowanie pracownika
-      description: Uwierzytelnia pracownika i zwraca token Bearer JWT.
-      security: [] # Logowanie jest publiczne
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Logowanie'
-      responses:
-        '200':
-          description: Pomyślnie zalogowano
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DaneLogowania'
-        '400':
-          description: Błędny format żądania
-        '401':
-          description: Nieprawidłowy login lub hasło
         '500':
           description: wewnetrzny blad przetwarzania
 
@@ -138,13 +109,6 @@ paths:
           description: wewnetrzny blad przetwarzania
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: 'Wprowadź token JWT otrzymany z endpointu /pracownik/login'
-
   schemas:
     Pracownik:
       type: object

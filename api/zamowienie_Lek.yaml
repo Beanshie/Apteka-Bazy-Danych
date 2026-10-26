@@ -6,10 +6,6 @@ info:
 servers:
   - url: /api/v1
 
-# Domyślne zabezpieczenie dla całego API (wymaga tokena Bearer)
-security:
-  - bearerAuth: []
-
 paths:
   /zamowienia/{zamowienie_ID}/leki:
     parameters:
@@ -120,13 +116,6 @@ paths:
           description: wewnetrzny blad przetwarzania
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: 'Wprowadź token JWT otrzymany z endpointu /klient/login lub /pracownik/login'
-
   parameters:
     ZamowienieID:
       name: zamowienie_ID
