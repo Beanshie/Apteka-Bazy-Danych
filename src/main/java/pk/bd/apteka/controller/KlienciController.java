@@ -1,4 +1,4 @@
-package pk.bd.apteka.klient;
+package pk.bd.apteka.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
