@@ -12,7 +12,7 @@ paths:
       summary: Pobranie listy zamówień
       operationId: listZamowienia
       parameters:
-        - name: klient_ID
+        - name: klient_id
           in: query
           required: false
           description: Filtruje zamówienia wskazanego klienta
@@ -65,9 +65,9 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /zamowienia/{zamowienie_ID}:
+  /zamowienia/{zamowienie_id}:
     parameters:
-      - name: zamowienie_ID
+      - name: zamowienie_id
         in: path
         required: true
         description: Unikalny identyfikator zamówienia
@@ -153,9 +153,9 @@ components:
         - $ref: '#/components/schemas/DaneRecepty'
         - type: object
           required:
-            - recepta_ID
+            - recepta_id
           properties:
-            recepta_ID:
+            recepta_id:
               type: integer
               readOnly: true
               description: Unikalny identyfikator recepty (PK, Auto-Increment)
@@ -164,9 +164,9 @@ components:
     DanePozycji:
       type: object
       required:
-        - lek_ID
+        - lek_id
       properties:
-        lek_ID:
+        lek_id:
           type: integer
           description: Identyfikator zamawianego leku
           example: 1
@@ -182,10 +182,10 @@ components:
     Pozycja:
       type: object
       required:
-        - lek_ID
+        - lek_id
         - krotnosc
       properties:
-        lek_ID:
+        lek_id:
           type: integer
           example: 1
         krotnosc:
@@ -199,10 +199,10 @@ components:
     DaneZamowienia:
       type: object
       required:
-        - klient_ID
+        - klient_id
         - pozycje
       properties:
-        klient_ID:
+        klient_id:
           type: integer
           description: Identyfikator klienta składającego zamówienie
           example: 1
@@ -240,18 +240,18 @@ components:
     Zamowienie:
       type: object
       required:
-        - zamowienie_ID
-        - klient_ID
+        - zamowienie_id
+        - klient_id
         - utworzony
         - aktualizacja
         - pozycje
       properties:
-        zamowienie_ID:
+        zamowienie_id:
           type: integer
           readOnly: true
           description: Unikalny identyfikator zamówienia (PK, Auto-Increment)
           example: 1
-        klient_ID:
+        klient_id:
           type: integer
           example: 1
         utworzony:

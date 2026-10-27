@@ -42,9 +42,9 @@ paths:
           description: Błędne dane wejściowe
         '500':
           description: wewnetrzny blad przetwarzania
-  /leki/{lek_ID}:
+  /leki/{lek_id}:
     parameters:
-      - name: lek_ID
+      - name: lek_id
         in: path
         required: true
         description: Unikalny identyfikator leku
@@ -125,9 +125,9 @@ components:
         - $ref: "#/components/schemas/DaneLek"
         - type: object
         - required:
-          - lek_ID
+          - lek_id
           properties:
-            lek_ID:
+            lek_id:
               type: integer
               readOnly: true
               description: Unikalny identyfikator leku (PK, Auto-Increment)

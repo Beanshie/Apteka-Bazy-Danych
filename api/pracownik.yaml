@@ -46,9 +46,9 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /pracownik/{id}:
+  /pracownik/{pracownik_id}:
     parameters:
-      - name: id
+      - name: pracownik_id
         in: path
         required: true
         description: 'Pracownik ID'
@@ -113,13 +113,13 @@ components:
     Pracownik:
       type: object
       properties:
-        id:
+        pracownik_id:
           type: integer
           format: int64
         login:
           type: string
       required:
-        - id
+        - pracownik_id
         - login
 
     UtworzeniePracownika:

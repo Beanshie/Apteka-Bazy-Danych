@@ -54,9 +54,9 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /recepty/{recepta_ID}:
+  /recepty/{recepta_id}:
     parameters:
-      - name: recepta_ID
+      - name: recepta_id
         in: path
         required: true
         description: Unikalny identyfikator recepty
@@ -141,9 +141,9 @@ components:
         - $ref: '#/components/schemas/DaneRecepty'
         - type: object
           required:
-            - recepta_ID
+            - recepta_id
           properties:
-            recepta_ID:
+            recepta_id:
               type: integer
               readOnly: true
               description: Unikalny identyfikator recepty (PK, Auto-Increment)

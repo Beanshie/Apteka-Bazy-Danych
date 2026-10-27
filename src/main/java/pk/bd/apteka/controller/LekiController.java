@@ -23,7 +23,8 @@ public class LekiController implements LekiApi {
 
     @Override
     public ResponseEntity<Lek> addLek(DaneLek daneLek) {
-        return null;
+        Lek lek= lekiService.addLek(daneLek);
+        return ResponseEntity.ok(lek);
     }
 
     @Override

@@ -46,9 +46,9 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /klient/{id}:
+  /klient/{klient_id}:
     parameters:
-      - name: id
+      - name: klient_id
         in: path
         required: true
         description: Klient ID
@@ -147,10 +147,10 @@ components:
         - $ref: '#/components/schemas/DaneKlienta'
         - type: object
           required:
-            - id
+            - klient_id
             - login
           properties:
-            id:
+            klient_id:
               type: integer
               format: int64
               readOnly: true

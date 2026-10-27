@@ -7,7 +7,7 @@ servers:
   - url: /api/v1
 
 paths:
-  /zamowienia/{zamowienie_ID}/leki:
+  /zamowienia/{zamowienie_id}/leki:
     parameters:
       - $ref: '#/components/parameters/ZamowienieID'
     get:
@@ -32,7 +32,7 @@ paths:
       summary: Dodanie leku do zamówienia
       description: >
         Dodaje pozycję do zamówienia. Dla leków z wymagana_Recepta = true
-        wymagane jest podanie recepta_ID.
+        wymagane jest podanie recepta_id.
       operationId: addZamowienieLek
       requestBody:
         required: true
@@ -58,7 +58,7 @@ paths:
         '500':
           description: wewnetrzny blad przetwarzania
 
-  /zamowienia/{zamowienie_ID}/leki/{lek_ID}:
+  /zamowienia/{zamowienie_id}/leki/{lek_id}:
     parameters:
       - $ref: '#/components/parameters/ZamowienieID'
       - $ref: '#/components/parameters/LekID'
@@ -118,14 +118,14 @@ paths:
 components:
   parameters:
     ZamowienieID:
-      name: zamowienie_ID
+      name: zamowienie_id
       in: path
       required: true
       description: Unikalny identyfikator zamówienia
       schema:
         type: integer
     LekID:
-      name: lek_ID
+      name: lek_id
       in: path
       required: true
       description: Unikalny identyfikator leku
@@ -142,7 +142,7 @@ components:
           default: 1
           description: Liczba zamawianych sztuk
           example: 2
-        recepta_ID:
+        recepta_id:
           type: integer
           nullable: true
           description: Identyfikator recepty (wymagany dla leków wydawanych na receptę)
@@ -153,9 +153,9 @@ components:
         - $ref: '#/components/schemas/DaneZamowienieLek'
         - type: object
           required:
-            - lek_ID
+            - lek_id
           properties:
-            lek_ID:
+            lek_id:
               type: integer
               description: Identyfikator dodawanego leku
               example: 1
@@ -165,15 +165,15 @@ components:
         - $ref: '#/components/schemas/DaneZamowienieLek'
         - type: object
           required:
-            - zamowienie_ID
-            - lek_ID
+            - zamowienie_id
+            - lek_id
             - krotnosc
           properties:
-            zamowienie_ID:
+            zamowienie_id:
               type: integer
               readOnly: true
               example: 1
-            lek_ID:
+            lek_id:
               type: integer
               readOnly: true
               example: 1
