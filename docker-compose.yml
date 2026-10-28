@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8081:8080"  # Dostęp na localhost:8081 (przekierowanie na port 8080 aplikacji)
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://localhost:3306/Apteka
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=haslo
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.mariadb.jdbc.Driver
+    depends_on:
+      mariadb-db:
+        condition: service_healthy
+
+  mariadb-db:
+    image: mariadb:13.0.2
+    environment:
+      - MYSQL_ROOT_PASSWORD=haslo
+      - MYSQL_DATABASE=Apteka
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=haslo
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mariadb_data:
