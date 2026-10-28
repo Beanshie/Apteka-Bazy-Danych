@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import pk.bd.apteka.dto.DaneLek;
 import pk.bd.apteka.dto.Lek;
@@ -28,7 +30,16 @@ public class LekiService {
         String sql = "INSERT INTO Lek (nazwa, cena, opis, wymagana_Recepta, dostepne) " +
                 "VALUES (:nazwa, :cena, :opis, :wymaganaRecepta, :dostepne)";
         SqlParameterSource params = new BeanPropertySqlParameterSource(lek);
-        jdbc.update(sql, params);
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        jdbc.update(sql, params, keyHolder, new String[]{"lek_ID"});
+
+        if (keyHolder.getKey() != null) {
+            Integer wygenerowaneId = keyHolder.getKey().intValue();
+            lek.setLekId(wygenerowaneId);
+            return lek;
+        }
+        lek.setLekId(-1);
         return lek;
     }
 }
