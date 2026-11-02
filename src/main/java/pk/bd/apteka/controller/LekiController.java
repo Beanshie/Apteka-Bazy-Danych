@@ -29,7 +29,8 @@ public class LekiController implements LekiApi {
 
     @Override
     public ResponseEntity<Lek> getLekById(Integer lekID) {
-        return null;
+        Lek lek = lekiService.getLekById(lekID);
+        return ResponseEntity.ok(lek);
     }
 
     @Override
@@ -40,6 +41,7 @@ public class LekiController implements LekiApi {
 
     @Override
     public ResponseEntity<Lek> updateLek(Integer lekID, DaneLek daneLek) {
-        return null;
+        Lek lek = lekiService.updateLek(lekID,daneLek);
+        return ResponseEntity.ok(lek);
     }
 }

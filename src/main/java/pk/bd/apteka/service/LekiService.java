@@ -1,8 +1,10 @@
 package pk.bd.apteka.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -41,5 +43,32 @@ public class LekiService {
         }
         lek.setLekId(-1);
         return lek;
+    }
+
+    public Lek getLekById(Integer lekID)
+    {
+        String sql = "SELECT * FROM Lek WHERE lek_ID = :lekID";
+        SqlParameterSource params = new MapSqlParameterSource("lekID", lekID);
+        try {
+            return jdbc.queryForObject(sql, params, new BeanPropertyRowMapper<>(Lek.class));
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
+
+    public Lek updateLek(Integer lekID,DaneLek daneLek )
+    {
+        Lek lek=new Lek(daneLek.getNazwa(),daneLek.getCena(),daneLek.getOpis(),lekID);
+        String sql = "UPDATE Lek SET " +
+                "nazwa = :nazwa, " +
+                "cena = :cena, " +
+                "opis = :opis, " +
+                "wymagana_Recepta = :wymaganaRecepta, " +
+                "dostepne = :dostepne " +
+                "WHERE lek_ID = :lekID";
+
+        SqlParameterSource params = new BeanPropertySqlParameterSource(lek);
+        int rowsAffected = jdbc.update(sql, params);//dodaj sprawdzenie
+        return lek
     }
 }
