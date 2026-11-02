@@ -1,6 +1,7 @@
 package pk.bd.apteka.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -14,6 +15,7 @@ import pk.bd.apteka.dto.DaneLek;
 import pk.bd.apteka.dto.Lek;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 public class LekiService {
@@ -21,44 +23,64 @@ public class LekiService {
     @Autowired
     private NamedParameterJdbcTemplate jdbc;
 
-    public List<Lek> getLeki() {
-        String sql = "SELECT * FROM Lek";
-        List<Lek> list=jdbc.query(sql, new BeanPropertyRowMapper<>(Lek.class));
-        return list;
-    }
-
-    public Lek addLek(DaneLek daneLek){
-        Lek lek=new Lek(daneLek.getNazwa(),daneLek.getCena(),daneLek.getOpis(),null);
+    public Lek addLek(DaneLek daneLek) {
+        if (daneLek == null || daneLek.getNazwa() == null || daneLek.getNazwa().isBlank()) {
+            throw new IllegalArgumentException("Nazwa leku nie może być pusta.");
+        }
+        if (daneLek.getCena() == null || daneLek.getCena() <= 0) {
+            throw new IllegalArgumentException("Cena leku musi być większa od zera.");
+        }
+        Lek lek = new Lek(daneLek.getNazwa(), daneLek.getCena(), daneLek.getOpis(), null);
         String sql = "INSERT INTO Lek (nazwa, cena, opis, wymagana_Recepta, dostepne) " +
                 "VALUES (:nazwa, :cena, :opis, :wymaganaRecepta, :dostepne)";
+
         SqlParameterSource params = new BeanPropertySqlParameterSource(lek);
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
-        jdbc.update(sql, params, keyHolder, new String[]{"lek_ID"});
+        try {
+            int rowsAffected = jdbc.update(sql, params, keyHolder, new String[]{"lek_ID"});
 
-        if (keyHolder.getKey() != null) {
-            Integer wygenerowaneId = keyHolder.getKey().intValue();
-            lek.setLekId(wygenerowaneId);
-            return lek;
+            if (rowsAffected > 0 && keyHolder.getKey() != null) {
+                lek.setLekId(keyHolder.getKey().intValue());
+                return lek;
+            }
+            throw new RuntimeException("Nie udało się utworzyć leku w bazie danych.");
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("Lek o nazwie '" + daneLek.getNazwa() + "' już istnieje w bazie danych.", e);
         }
-        lek.setLekId(-1);
-        return lek;
     }
 
-    public Lek getLekById(Integer lekID)
-    {
+    public Lek getLekById(Integer lekID) {
         String sql = "SELECT * FROM Lek WHERE lek_ID = :lekID";
         SqlParameterSource params = new MapSqlParameterSource("lekID", lekID);
         try {
             return jdbc.queryForObject(sql, params, new BeanPropertyRowMapper<>(Lek.class));
         } catch (EmptyResultDataAccessException e) {
-            return null;
+            throw new NoSuchElementException("Nie znaleziono leku w bazie danych");
         }
     }
 
-    public Lek updateLek(Integer lekID,DaneLek daneLek )
-    {
-        Lek lek=new Lek(daneLek.getNazwa(),daneLek.getCena(),daneLek.getOpis(),lekID);
+    public List<Lek> getLeki() {
+        String sql = "SELECT * FROM Lek";
+        List<Lek> list = jdbc.query(sql, new BeanPropertyRowMapper<>(Lek.class));
+        return list;
+    }
+
+    public Lek updateLek(Integer lekID, DaneLek daneLek) {
+        if (lekID == null || lekID <= 0) {
+            throw new IllegalArgumentException("Niepoprawne ID leku.");
+        }
+        if (daneLek == null || daneLek.getNazwa() == null || daneLek.getNazwa().isBlank()) {
+            throw new IllegalArgumentException("Nazwa leku nie może być pusta.");
+        }
+        if (daneLek.getCena() == null || daneLek.getCena() <= 0) {
+            throw new IllegalArgumentException("Cena leku musi być większa od zera.");
+        }
+
+        Lek lek = new Lek(daneLek.getNazwa(), daneLek.getCena(), daneLek.getOpis(), null);
+
+        lek.setLekId(lekID);
+
         String sql = "UPDATE Lek SET " +
                 "nazwa = :nazwa, " +
                 "cena = :cena, " +
@@ -68,7 +90,17 @@ public class LekiService {
                 "WHERE lek_ID = :lekID";
 
         SqlParameterSource params = new BeanPropertySqlParameterSource(lek);
-        int rowsAffected = jdbc.update(sql, params);//dodaj sprawdzenie
-        return lek
+
+        try {
+            int rowsAffected = jdbc.update(sql, params);
+
+            if (rowsAffected == 0) {
+                throw new NoSuchElementException("Lek o ID " + lekID + " nie istnieje w bazie danych.");
+            }
+
+            return lek;
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("Lek o nazwie '" + daneLek.getNazwa() + "' już istnieje.", e);
+        }
     }
 }
