@@ -5,9 +5,9 @@ services:
     ports:
       - "127.0.0.1:3000:80"
     depends_on:
-      - apteka-backend
+      - backend
 
-  apteka-backend:
+  backend:
     build: backend
     ports:
       - "127.0.0.1:8081:8080"
