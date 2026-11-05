@@ -1,7 +1,7 @@
 services:
 
   frontend:
-    build: ../apteka-frontend
+    build: frontend
     ports:
       - "127.0.0.1:3000:80"
     depends_on:
