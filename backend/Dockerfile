@@ -7,8 +7,8 @@ COPY pom.xml .
 RUN mvn dependency:go-offline
 
 # Kopiowanie kodu źródłowego i budowanie pliku JAR
-COPY src ./src
 COPY api ./api
+COPY src ./src
 RUN mvn package -DskipTests
 
 # --- Etap 2: Obraz uruchomieniowy ---
