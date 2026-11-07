@@ -1,0 +1,275 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — Produkt
+  version: 2.0.0
+  description: Zarządzanie zasobem Produkt.
+servers:
+- url: /api/v1
+paths:
+  /produkty:
+    get:
+      tags:
+      - Produkt
+      operationId: listProdukt
+      summary: Lista — Produkt
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Produkt'
+      parameters:
+      - name: id_kategorii
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+      - name: id_dostawcy
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+    post:
+      tags:
+      - Produkt
+      operationId: createProdukt
+      summary: Utworzenie — Produkt
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Produkt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProduktCreate'
+  /produkty/{id_produktu}:
+    parameters:
+    - name: id_produktu
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Produkt
+      operationId: getProdukt
+      summary: Pobranie — Produkt
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Produkt'
+    put:
+      tags:
+      - Produkt
+      operationId: updateProdukt
+      summary: Aktualizacja — Produkt
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Produkt'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProduktUpdate'
+      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
+        null jest dozwolony wyłącznie dla pól nullable.
+    delete:
+      tags:
+      - Produkt
+      operationId: deleteProdukt
+      summary: Usunięcie — Produkt
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Pozycje zamówień odwołujące się do produktu blokują usunięcie (409).
+components:
+  schemas:
+    Produkt:
+      type: object
+      properties:
+        id_produktu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        id_kategorii:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_dostawcy:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        nazwa_produktu:
+          type: string
+          maxLength: 100
+        cena:
+          type: number
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 12.5
+        stan_magazynowy:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+          default: 0
+        wymaga_recepty:
+          type: boolean
+          example: true
+          default: false
+      required:
+      - id_produktu
+      - id_kategorii
+      - id_dostawcy
+      - nazwa_produktu
+      - cena
+      - stan_magazynowy
+      - wymaga_recepty
+    ProduktCreate:
+      type: object
+      properties:
+        id_kategorii:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_dostawcy:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        nazwa_produktu:
+          type: string
+          maxLength: 100
+        cena:
+          type: number
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 12.5
+        stan_magazynowy:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+          default: 0
+        wymaga_recepty:
+          type: boolean
+          example: true
+          default: false
+      required:
+      - id_kategorii
+      - id_dostawcy
+      - nazwa_produktu
+      - cena
+    ProduktUpdate:
+      type: object
+      properties:
+        id_kategorii:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_dostawcy:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        nazwa_produktu:
+          type: string
+          maxLength: 100
+        cena:
+          type: number
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 12.5
+        stan_magazynowy:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1
+        wymaga_recepty:
+          type: boolean
+          example: true

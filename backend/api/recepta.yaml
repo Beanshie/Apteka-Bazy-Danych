@@ -1,150 +1,252 @@
 openapi: 3.0.3
 info:
-  title: API Apteki - Recepty
-  version: 1.0.0
-  description: Interfejs API do zarządzania receptami.
+  title: API Apteki — Recepta
+  version: 2.0.0
+  description: Zarządzanie zasobem Recepta.
 servers:
-  - url: /api/v1
-
+- url: /api/v1
 paths:
   /recepty:
     get:
-      summary: Pobranie listy recept
-      operationId: listRecepty
-      parameters:
-        - name: recepta_Numer
-          in: query
-          required: false
-          description: Filtruje recepty po numerze
-          schema:
-            type: string
+      tags:
+      - Recepta
+      operationId: listRecepta
+      summary: Lista — Recepta
       responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
         '200':
-          description: success
+          description: Operacja zakończona pomyślnie.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Recepta'
-        '401':
-          description: nie autoryzowany
-        '500':
-          description: wewnetrzny blad przetwarzania
-    post:
-      summary: Dodanie nowej recepty
-      operationId: createRecepta
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DaneRecepty'
-      responses:
-        '201':
-          description: Utworzono receptę
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Recepta'
-        '400':
-          description: bledne dane
-        '401':
-          description: nie autoryzowany
-        '500':
-          description: wewnetrzny blad przetwarzania
-
-  /recepty/{recepta_id}:
-    parameters:
-      - name: recepta_id
-        in: path
-        required: true
-        description: Unikalny identyfikator recepty
+      parameters:
+      - name: id_klienta
+        in: query
+        required: false
         schema:
           type: integer
-    get:
-      summary: Pobranie recepty
-      operationId: getRecepta
+          format: int32
+          minimum: 1
+          example: 1
+      - name: kod_recepty
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 10
+      - name: status_recepty
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 20
+          enum: &id001
+          - NOWA
+          - ZWERYFIKOWANA
+          - ZREALIZOWANA
+          - ODRZUCONA
+    post:
+      tags:
+      - Recepta
+      operationId: createRecepta
+      summary: Utworzenie — Recepta
       responses:
-        '200':
-          description: success
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Recepta'
-        '401':
-          description: nie autoryzowany
-        '404':
-          description: nie znaleziono
-        '500':
-          description: wewnetrzny blad przetwarzania
-    put:
-      summary: Aktualizacja recepty
-      operationId: updateRecepta
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DaneRecepty'
+              $ref: '#/components/schemas/ReceptaCreate'
+  /recepty/{id_recepty}:
+    parameters:
+    - name: id_recepty
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Recepta
+      operationId: getRecepta
+      summary: Pobranie — Recepta
       responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
         '200':
-          description: success
+          description: Operacja zakończona pomyślnie.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Recepta'
-        '400':
-          description: bledne dane
-        '401':
-          description: nie autoryzowany
-        '404':
-          description: nie znaleziono
-        '500':
-          description: wewnetrzny blad przetwarzania
-    delete:
-      summary: Usuwanie recepty
-      operationId: deleteRecepta
+    put:
+      tags:
+      - Recepta
+      operationId: updateRecepta
+      summary: Aktualizacja — Recepta
       responses:
-        '200':
-          description: ok
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
         '401':
-          description: nie autoryzowany
-        '404':
-          description: nie znaleziono
-        '409':
-          description: recepta jest powiązana z pozycją zamówienia
+          description: Brak autoryzacji.
         '500':
-          description: wewnetrzny blad przetwarzania
-
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recepta'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceptaUpdate'
+      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
+        null jest dozwolony wyłącznie dla pól nullable.
+    delete:
+      tags:
+      - Recepta
+      operationId: deleteRecepta
+      summary: Usunięcie — Recepta
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Usuwa receptę; id_recepty w powiązanych pozycjach zostaje ustawione
+        na null.
 components:
   schemas:
-    DaneRecepty:
-      type: object
-      required:
-        - recepta_Numer
-        - data_Wystawienia
-      properties:
-        recepta_Numer:
-          type: string
-          maxLength: 64
-          description: Numer recepty
-          example: '0123456789012345678901234567890123456789'
-        data_Wystawienia:
-          type: string
-          format: date
-          description: Data wystawienia recepty
-          example: '2026-10-15'
-
     Recepta:
-      allOf:
-        - $ref: '#/components/schemas/DaneRecepty'
-        - type: object
-          required:
-            - recepta_id
-          properties:
-            recepta_id:
-              type: integer
-              readOnly: true
-              description: Unikalny identyfikator recepty (PK, Auto-Increment)
-              example: 1
+      type: object
+      properties:
+        id_recepty:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        kod_recepty:
+          type: string
+          maxLength: 10
+        pesel_pacjenta:
+          type: string
+          maxLength: 11
+        status_recepty:
+          type: string
+          maxLength: 20
+          default: NOWA
+          enum: *id001
+      required:
+      - id_recepty
+      - id_klienta
+      - kod_recepty
+      - pesel_pacjenta
+      - status_recepty
+    ReceptaCreate:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        kod_recepty:
+          type: string
+          maxLength: 10
+        pesel_pacjenta:
+          type: string
+          maxLength: 11
+        status_recepty:
+          type: string
+          maxLength: 20
+          default: NOWA
+          enum:
+          - NOWA
+          - ZWERYFIKOWANA
+          - ZREALIZOWANA
+          - ODRZUCONA
+      required:
+      - id_klienta
+      - kod_recepty
+      - pesel_pacjenta
+    ReceptaUpdate:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        kod_recepty:
+          type: string
+          maxLength: 10
+        pesel_pacjenta:
+          type: string
+          maxLength: 11
+        status_recepty:
+          type: string
+          maxLength: 20
+          enum:
+          - NOWA
+          - ZWERYFIKOWANA
+          - ZREALIZOWANA
+          - ODRZUCONA

@@ -1,0 +1,247 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — SzczegolZamowienia
+  version: 2.0.0
+  description: Pozycje zamówienia z ceną jednostkową zapisaną przez backend w chwili
+    dodania. Para id_zamowienia i id_produktu jest unikalna.
+servers:
+- url: /api/v1
+paths:
+  /zamowienia/{id_zamowienia}/pozycje:
+    get:
+      tags:
+      - SzczegolZamowienia
+      operationId: listSzczegolZamowienia
+      summary: Lista — SzczegolZamowienia
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SzczegolZamowienia'
+    post:
+      tags:
+      - SzczegolZamowienia
+      operationId: createSzczegolZamowienia
+      summary: Utworzenie — SzczegolZamowienia
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SzczegolZamowienia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SzczegolZamowieniaCreate'
+    parameters:
+    - name: id_zamowienia
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+  /zamowienia/{id_zamowienia}/pozycje/{id_szczegolu}:
+    parameters:
+    - name: id_zamowienia
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    - name: id_szczegolu
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - SzczegolZamowienia
+      operationId: getSzczegolZamowienia
+      summary: Pobranie — SzczegolZamowienia
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SzczegolZamowienia'
+    put:
+      tags:
+      - SzczegolZamowienia
+      operationId: updateSzczegolZamowienia
+      summary: Aktualizacja — SzczegolZamowienia
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SzczegolZamowienia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SzczegolZamowieniaUpdate'
+      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
+        null jest dozwolony wyłącznie dla pól nullable.
+    delete:
+      tags:
+      - SzczegolZamowienia
+      operationId: deleteSzczegolZamowienia
+      summary: Usunięcie — SzczegolZamowienia
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Usuwa wskazany zasób.
+components:
+  schemas:
+    SzczegolZamowienia:
+      type: object
+      properties:
+        id_szczegolu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        id_zamowienia:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_produktu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_recepty:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          nullable: true
+        ilosc:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          default: 1
+        cena_jednostkowa:
+          type: number
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 12.5
+          readOnly: true
+      required:
+      - id_szczegolu
+      - id_zamowienia
+      - id_produktu
+      - id_recepty
+      - ilosc
+      - cena_jednostkowa
+    SzczegolZamowieniaCreate:
+      type: object
+      properties:
+        id_produktu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_recepty:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          nullable: true
+        ilosc:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          default: 1
+      required:
+      - id_produktu
+    SzczegolZamowieniaUpdate:
+      type: object
+      properties:
+        id_produktu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_recepty:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          nullable: true
+        ilosc:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1

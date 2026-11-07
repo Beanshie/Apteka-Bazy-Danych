@@ -1,0 +1,246 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — AdresKlienta
+  version: 2.0.0
+  description: Zarządzanie zasobem AdresKlienta.
+servers:
+- url: /api/v1
+paths:
+  /adresy:
+    get:
+      tags:
+      - AdresKlienta
+      operationId: listAdresKlienta
+      summary: Lista — AdresKlienta
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdresKlienta'
+      parameters:
+      - name: id_klienta
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+    post:
+      tags:
+      - AdresKlienta
+      operationId: createAdresKlienta
+      summary: Utworzenie — AdresKlienta
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdresKlienta'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdresKlientaCreate'
+  /adresy/{id_adresu}:
+    parameters:
+    - name: id_adresu
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - AdresKlienta
+      operationId: getAdresKlienta
+      summary: Pobranie — AdresKlienta
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdresKlienta'
+    put:
+      tags:
+      - AdresKlienta
+      operationId: updateAdresKlienta
+      summary: Aktualizacja — AdresKlienta
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdresKlienta'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdresKlientaUpdate'
+      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
+        null jest dozwolony wyłącznie dla pól nullable.
+    delete:
+      tags:
+      - AdresKlienta
+      operationId: deleteAdresKlienta
+      summary: Usunięcie — AdresKlienta
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Zamówienia korzystające z adresu blokują usunięcie (409).
+components:
+  schemas:
+    AdresKlienta:
+      type: object
+      properties:
+        id_adresu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        ulica:
+          type: string
+          maxLength: 100
+        numer_domu:
+          type: string
+          maxLength: 10
+        numer_mieszkania:
+          type: string
+          maxLength: 10
+          nullable: true
+        kod_pocztowy:
+          type: string
+          maxLength: 10
+        miasto:
+          type: string
+          maxLength: 50
+      required:
+      - id_adresu
+      - id_klienta
+      - ulica
+      - numer_domu
+      - numer_mieszkania
+      - kod_pocztowy
+      - miasto
+    AdresKlientaCreate:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        ulica:
+          type: string
+          maxLength: 100
+        numer_domu:
+          type: string
+          maxLength: 10
+        numer_mieszkania:
+          type: string
+          maxLength: 10
+          nullable: true
+        kod_pocztowy:
+          type: string
+          maxLength: 10
+        miasto:
+          type: string
+          maxLength: 50
+      required:
+      - id_klienta
+      - ulica
+      - numer_domu
+      - kod_pocztowy
+      - miasto
+    AdresKlientaUpdate:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        ulica:
+          type: string
+          maxLength: 100
+        numer_domu:
+          type: string
+          maxLength: 10
+        numer_mieszkania:
+          type: string
+          maxLength: 10
+          nullable: true
+        kod_pocztowy:
+          type: string
+          maxLength: 10
+        miasto:
+          type: string
+          maxLength: 50

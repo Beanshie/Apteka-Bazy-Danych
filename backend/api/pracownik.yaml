@@ -1,173 +1,245 @@
 openapi: 3.0.3
 info:
-  title: Pracownik Service API
-  version: 1.0.0
-  description: Proste API do zarządzania pracownikami z autoryzacją.
+  title: API Apteki — Pracownik
+  version: 2.0.0
+  description: Zarządzanie zasobem Pracownik.
 servers:
-  - url: /api/v1
-
+- url: /api/v1
 paths:
   /pracownicy:
     get:
-      summary: 'pobranie listy pracownikow'
-      operationId: list
+      tags:
+      - Pracownik
+      operationId: listPracownik
+      summary: Lista — Pracownik
       responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
         '200':
-          description: success
+          description: Operacja zakończona pomyślnie.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Pracownik'
-        '401':
-          description: nie autoryzowany
-        '500':
-          description: wewnetrzny blad przetwarzania
     post:
+      tags:
+      - Pracownik
       operationId: createPracownik
-      summary: Utworzenie pracownika
-      description: Pobiera login oraz haslo pracownika (rejestracja)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UtworzeniePracownika'
+      summary: Utworzenie — Pracownik
       responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
         '201':
-          description: 'Utworzono pracownika'
+          description: Utworzono zasób.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pracownik'
-        '400':
-          description: błędne dane
-        '500':
-          description: wewnetrzny blad przetwarzania
-
-  /pracownik/{pracownik_id}:
-    parameters:
-      - name: pracownik_id
-        in: path
-        required: true
-        description: 'Pracownik ID'
-        schema:
-          type: integer
-          format: int64
-    get:
-      summary: 'pobranie pracownika'
-      operationId: getPracownik
-      responses:
-        '200':
-          description: success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Pracownik'
-        '401':
-          description: nie autoryzowany
-        '404':
-          description: nie znaleziono
-        '500':
-          description: wewnetrzny blad przetwarzania
-    delete:
-      summary: 'Usuwanie pracownika'
-      operationId: deletePracownik
-      responses:
-        '200':
-          description: ok
-        '401':
-          description: nie autoryzowany
-        '404':
-          description: nie znaleziono
-        '500':
-          description: wewnetrzny blad przetwarzania
-    put:
-      summary: 'Aktualizacja pracownika'
-      operationId: updatePracownik
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UtworzeniePracownika'
+              $ref: '#/components/schemas/PracownikCreate'
+  /pracownicy/{id_pracownika}:
+    parameters:
+    - name: id_pracownika
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Pracownik
+      operationId: getPracownik
+      summary: Pobranie — Pracownik
       responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
         '200':
-          description: success
+          description: Operacja zakończona pomyślnie.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pracownik'
+    put:
+      tags:
+      - Pracownik
+      operationId: updatePracownik
+      summary: Aktualizacja — Pracownik
+      responses:
         '400':
-          description: bledne dane/powtorzony login
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
         '401':
-          description: nie autoryzowany
-        '404':
-          description: nie znaleziono        
+          description: Brak autoryzacji.
         '500':
-          description: wewnetrzny blad przetwarzania
-
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pracownik'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PracownikUpdate'
+      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
+        null jest dozwolony wyłącznie dla pól nullable.
+    delete:
+      tags:
+      - Pracownik
+      operationId: deletePracownik
+      summary: Usunięcie — Pracownik
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Usuwa wskazany zasób.
 components:
   schemas:
     Pracownik:
       type: object
       properties:
-        pracownik_id:
+        id_pracownika:
           type: integer
-          format: int64
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
         login:
           type: string
+          maxLength: 50
+        imie:
+          type: string
+          maxLength: 50
+        nazwisko:
+          type: string
+          maxLength: 50
+        rola:
+          type: string
+          maxLength: 30
+          default: FARMACEUTA
+          enum:
+          - FARMACEUTA
+          - KIEROWNIK
+          - ADMIN
+        aktywny:
+          type: boolean
+          example: true
+          default: true
       required:
-        - pracownik_id
-        - login
-
-    UtworzeniePracownika:
+      - id_pracownika
+      - login
+      - imie
+      - nazwisko
+      - rola
+      - aktywny
+    PracownikCreate:
       type: object
       properties:
         login:
           type: string
-        haslo: 
-          type: string
-          format: password
-      required:
-        - login
-        - haslo
-
-    Logowanie:
-      type: object
-      properties:
-        login:
-          type: string
-          example: 'jan_kowalski'
+          maxLength: 50
         haslo:
           type: string
+          maxLength: 255
           format: password
-          example: 'MojeBezpieczneHaslo123!'
+          writeOnly: true
+          description: Hasło wejściowe; backend zapisuje wyłącznie jego skrót.
+        imie:
+          type: string
+          maxLength: 50
+        nazwisko:
+          type: string
+          maxLength: 50
+        rola:
+          type: string
+          maxLength: 30
+          default: FARMACEUTA
+          enum:
+          - FARMACEUTA
+          - KIEROWNIK
+          - ADMIN
+        aktywny:
+          type: boolean
+          example: true
+          default: true
       required:
-        - login
-        - haslo
-
-    DaneLogowania:
+      - login
+      - haslo
+      - imie
+      - nazwisko
+    PracownikUpdate:
       type: object
       properties:
-        token:
+        login:
           type: string
-          description: 'Token dostępowy JWT'
-          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-        tokenType:
+          maxLength: 50
+        haslo:
           type: string
-          description: 'Typ tokenu autoryzacyjnego'
-          example: 'Bearer'
-        expiresIn:
-          type: integer
-          description: 'Czas ważności tokenu w sekundach'
-          example: 3600
-        refreshToken:
+          maxLength: 255
+          format: password
+          writeOnly: true
+          description: Hasło wejściowe; backend zapisuje wyłącznie jego skrót.
+        imie:
           type: string
-          description: 'Token służący do odświeżania sesji'
-          example: 'd9b2d63d-a233-4123-bf3a-79111322f1c8'
-      required:
-        - token
-        - tokenType
-        - expiresIn
+          maxLength: 50
+        nazwisko:
+          type: string
+          maxLength: 50
+        rola:
+          type: string
+          maxLength: 30
+          enum:
+          - FARMACEUTA
+          - KIEROWNIK
+          - ADMIN
+        aktywny:
+          type: boolean
+          example: true
