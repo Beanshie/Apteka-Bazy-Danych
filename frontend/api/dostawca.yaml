@@ -1,0 +1,218 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — Dostawca
+  version: 2.0.0
+  description: Zarządzanie zasobem Dostawca.
+servers:
+- url: /api/v1
+paths:
+  /dostawcy:
+    get:
+      tags:
+      - Dostawca
+      operationId: listDostawca
+      summary: Lista — Dostawca
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dostawca'
+    post:
+      tags:
+      - Dostawca
+      operationId: createDostawca
+      summary: Utworzenie — Dostawca
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dostawca'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DostawcaCreate'
+  /dostawcy/{id_dostawcy}:
+    parameters:
+    - name: id_dostawcy
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Dostawca
+      operationId: getDostawca
+      summary: Pobranie — Dostawca
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dostawca'
+    put:
+      tags:
+      - Dostawca
+      operationId: updateDostawca
+      summary: Aktualizacja — Dostawca
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dostawca'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DostawcaUpdate'
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
+    delete:
+      tags:
+      - Dostawca
+      operationId: deleteDostawca
+      summary: Usunięcie — Dostawca
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Produkty dostawcy blokują usunięcie (409).
+components:
+  schemas:
+    Dostawca:
+      type: object
+      properties:
+        id_dostawcy:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        nazwa_firmy:
+          type: string
+          maxLength: 100
+        nip:
+          type: string
+          maxLength: 15
+          nullable: true
+        telefon:
+          type: string
+          maxLength: 20
+          nullable: true
+        email:
+          type: string
+          maxLength: 100
+          format: email
+          nullable: true
+      required:
+      - id_dostawcy
+      - nazwa_firmy
+      - nip
+      - telefon
+      - email
+    DostawcaCreate:
+      type: object
+      properties:
+        nazwa_firmy:
+          type: string
+          maxLength: 100
+        nip:
+          type: string
+          maxLength: 15
+          nullable: true
+        telefon:
+          type: string
+          maxLength: 20
+          nullable: true
+        email:
+          type: string
+          maxLength: 100
+          format: email
+          nullable: true
+      required:
+      - nazwa_firmy
+    DostawcaUpdate:
+      type: object
+      properties:
+        nazwa_firmy:
+          type: string
+          maxLength: 100
+        nip:
+          type: string
+          maxLength: 15
+          nullable: true
+        telefon:
+          type: string
+          maxLength: 20
+          nullable: true
+        email:
+          type: string
+          maxLength: 100
+          format: email
+          nullable: true
+      required:
+      - nazwa_firmy

@@ -1,0 +1,186 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — Kategoria
+  version: 2.0.0
+  description: Zarządzanie zasobem Kategoria.
+servers:
+- url: /api/v1
+paths:
+  /kategorie:
+    get:
+      tags:
+      - Kategoria
+      operationId: listKategoria
+      summary: Lista — Kategoria
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Kategoria'
+    post:
+      tags:
+      - Kategoria
+      operationId: createKategoria
+      summary: Utworzenie — Kategoria
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kategoria'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KategoriaCreate'
+  /kategorie/{id_kategorii}:
+    parameters:
+    - name: id_kategorii
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Kategoria
+      operationId: getKategoria
+      summary: Pobranie — Kategoria
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kategoria'
+    put:
+      tags:
+      - Kategoria
+      operationId: updateKategoria
+      summary: Aktualizacja — Kategoria
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Kategoria'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KategoriaUpdate'
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
+    delete:
+      tags:
+      - Kategoria
+      operationId: deleteKategoria
+      summary: Usunięcie — Kategoria
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Produkty przypisane do kategorii blokują usunięcie (409).
+components:
+  schemas:
+    Kategoria:
+      type: object
+      properties:
+        id_kategorii:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        nazwa_kategorii:
+          type: string
+          maxLength: 50
+        opis:
+          type: string
+          nullable: true
+      required:
+      - id_kategorii
+      - nazwa_kategorii
+      - opis
+    KategoriaCreate:
+      type: object
+      properties:
+        nazwa_kategorii:
+          type: string
+          maxLength: 50
+        opis:
+          type: string
+          nullable: true
+      required:
+      - nazwa_kategorii
+    KategoriaUpdate:
+      type: object
+      properties:
+        nazwa_kategorii:
+          type: string
+          maxLength: 50
+        opis:
+          type: string
+          nullable: true
+      required:
+      - nazwa_kategorii
