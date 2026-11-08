@@ -1,0 +1,179 @@
+openapi: 3.0.3
+info:
+  title: API Apteki - Pozycje zamówienia
+  version: 1.0.0
+  description: Interfejs API do zarządzania lekami w zamówieniu (pozycjami zamówienia).
+servers:
+  - url: /api/v1
+
+paths:
+  /zamowienia/{zamowienie_id}/leki:
+    parameters:
+      - $ref: '#/components/parameters/ZamowienieID'
+    get:
+      summary: Pobranie listy leków w zamówieniu
+      operationId: listZamowienieLeki
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZamowienieLek'
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono zamówienia
+        '500':
+          description: wewnetrzny blad przetwarzania
+    post:
+      summary: Dodanie leku do zamówienia
+      description: >
+        Dodaje pozycję do zamówienia. Dla leków z wymagana_Recepta = true
+        wymagane jest podanie recepta_id.
+      operationId: addZamowienieLek
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NowaZamowienieLek'
+      responses:
+        '201':
+          description: Dodano pozycję do zamówienia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZamowienieLek'
+        '400':
+          description: bledne dane/brak recepty/brak leku na stanie
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono zamówienia, leku lub recepty
+        '409':
+          description: lek jest już w zamówieniu
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+  /zamowienia/{zamowienie_id}/leki/{lek_id}:
+    parameters:
+      - $ref: '#/components/parameters/ZamowienieID'
+      - $ref: '#/components/parameters/LekID'
+    get:
+      summary: Pobranie pozycji zamówienia
+      operationId: getZamowienieLek
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZamowienieLek'
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    put:
+      summary: Aktualizacja pozycji zamówienia
+      operationId: updateZamowienieLek
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DaneZamowienieLek'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZamowienieLek'
+        '400':
+          description: bledne dane/brak recepty/brak leku na stanie
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono pozycji lub recepty
+        '500':
+          description: wewnetrzny blad przetwarzania
+    delete:
+      summary: Usunięcie leku z zamówienia
+      operationId: deleteZamowienieLek
+      responses:
+        '200':
+          description: ok
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+components:
+  parameters:
+    ZamowienieID:
+      name: zamowienie_id
+      in: path
+      required: true
+      description: Unikalny identyfikator zamówienia
+      schema:
+        type: integer
+    LekID:
+      name: lek_id
+      in: path
+      required: true
+      description: Unikalny identyfikator leku
+      schema:
+        type: integer
+
+  schemas:
+    DaneZamowienieLek:
+      type: object
+      properties:
+        krotnosc:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Liczba zamawianych sztuk
+          example: 2
+        recepta_id:
+          type: integer
+          nullable: true
+          description: Identyfikator recepty (wymagany dla leków wydawanych na receptę)
+          example: 1
+
+    NowaZamowienieLek:
+      allOf:
+        - $ref: '#/components/schemas/DaneZamowienieLek'
+        - type: object
+          required:
+            - lek_id
+          properties:
+            lek_id:
+              type: integer
+              description: Identyfikator dodawanego leku
+              example: 1
+
+    ZamowienieLek:
+      allOf:
+        - $ref: '#/components/schemas/DaneZamowienieLek'
+        - type: object
+          required:
+            - zamowienie_id
+            - lek_id
+            - krotnosc
+          properties:
+            zamowienie_id:
+              type: integer
+              readOnly: true
+              example: 1
+            lek_id:
+              type: integer
+              readOnly: true
+              example: 1

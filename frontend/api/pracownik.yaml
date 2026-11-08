@@ -1,0 +1,173 @@
+openapi: 3.0.3
+info:
+  title: Pracownik Service API
+  version: 1.0.0
+  description: Proste API do zarządzania pracownikami z autoryzacją.
+servers:
+  - url: /api/v1
+
+paths:
+  /pracownicy:
+    get:
+      summary: 'pobranie listy pracownikow'
+      operationId: list
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pracownik'
+        '401':
+          description: nie autoryzowany
+        '500':
+          description: wewnetrzny blad przetwarzania
+    post:
+      operationId: createPracownik
+      summary: Utworzenie pracownika
+      description: Pobiera login oraz haslo pracownika (rejestracja)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UtworzeniePracownika'
+      responses:
+        '201':
+          description: 'Utworzono pracownika'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pracownik'
+        '400':
+          description: błędne dane
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+  /pracownik/{pracownik_id}:
+    parameters:
+      - name: pracownik_id
+        in: path
+        required: true
+        description: 'Pracownik ID'
+        schema:
+          type: integer
+          format: int64
+    get:
+      summary: 'pobranie pracownika'
+      operationId: getPracownik
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pracownik'
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    delete:
+      summary: 'Usuwanie pracownika'
+      operationId: deletePracownik
+      responses:
+        '200':
+          description: ok
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono
+        '500':
+          description: wewnetrzny blad przetwarzania
+    put:
+      summary: 'Aktualizacja pracownika'
+      operationId: updatePracownik
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UtworzeniePracownika'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pracownik'
+        '400':
+          description: bledne dane/powtorzony login
+        '401':
+          description: nie autoryzowany
+        '404':
+          description: nie znaleziono        
+        '500':
+          description: wewnetrzny blad przetwarzania
+
+components:
+  schemas:
+    Pracownik:
+      type: object
+      properties:
+        pracownik_id:
+          type: integer
+          format: int64
+        login:
+          type: string
+      required:
+        - pracownik_id
+        - login
+
+    UtworzeniePracownika:
+      type: object
+      properties:
+        login:
+          type: string
+        haslo: 
+          type: string
+          format: password
+      required:
+        - login
+        - haslo
+
+    Logowanie:
+      type: object
+      properties:
+        login:
+          type: string
+          example: 'jan_kowalski'
+        haslo:
+          type: string
+          format: password
+          example: 'MojeBezpieczneHaslo123!'
+      required:
+        - login
+        - haslo
+
+    DaneLogowania:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 'Token dostępowy JWT'
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+        tokenType:
+          type: string
+          description: 'Typ tokenu autoryzacyjnego'
+          example: 'Bearer'
+        expiresIn:
+          type: integer
+          description: 'Czas ważności tokenu w sekundach'
+          example: 3600
+        refreshToken:
+          type: string
+          description: 'Token służący do odświeżania sesji'
+          example: 'd9b2d63d-a233-4123-bf3a-79111322f1c8'
+      required:
+        - token
+        - tokenType
+        - expiresIn
