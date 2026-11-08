@@ -118,8 +118,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DostawcaUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
     delete:
       tags:
       - Dostawca
@@ -214,3 +214,5 @@ components:
           maxLength: 100
           format: email
           nullable: true
+      required:
+      - nazwa_firmy

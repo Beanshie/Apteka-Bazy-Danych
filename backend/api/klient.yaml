@@ -119,8 +119,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/KlientUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone. Hasło null zachowuje dotychczasowe hasło.
     delete:
       tags:
       - Klient
@@ -228,8 +228,13 @@ components:
           maxLength: 255
           format: password
           writeOnly: true
-          description: Hasło wejściowe; backend zapisuje wyłącznie jego skrót.
+          description: Nowe hasło. Null lub pominięcie zachowuje dotychczasowe hasło.
+          nullable: true
         telefon:
           type: string
           maxLength: 20
           nullable: true
+      required:
+      - imie
+      - nazwisko
+      - email

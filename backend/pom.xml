@@ -32,6 +32,20 @@
 	</properties>
 	<dependencies>
 		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-mariadb</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-crypto</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
@@ -104,6 +118,7 @@
 					<modelPackage>pk.bd.apteka.dto</modelPackage>
 					<configOptions>
 						<interfaceOnly>true</interfaceOnly>
+						<containerDefaultToNull>true</containerDefaultToNull>
 						<useTags>true</useTags>
 						<useSpringBoot3>true</useSpringBoot3>
 						<useJakartaJaxb>true</useJakartaJaxb>

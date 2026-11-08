@@ -118,8 +118,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/KategoriaUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
     delete:
       tags:
       - Kategoria
@@ -182,3 +182,5 @@ components:
         opis:
           type: string
           nullable: true
+      required:
+      - nazwa_kategorii

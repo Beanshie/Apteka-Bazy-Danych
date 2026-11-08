@@ -127,8 +127,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PlatnoscUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
     delete:
       tags:
       - Platnosc
@@ -247,3 +247,7 @@ components:
           description: Data i czas; warstwa API odpowiada za konwersję strefy czasowej
             dla MariaDB DATETIME.
           nullable: true
+      required:
+      - id_zamowienia
+      - metoda_platnosci
+      - status_platnosci

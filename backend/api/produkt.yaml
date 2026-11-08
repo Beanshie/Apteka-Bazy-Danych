@@ -135,8 +135,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProduktUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
     delete:
       tags:
       - Produkt
@@ -273,3 +273,10 @@ components:
         wymaga_recepty:
           type: boolean
           example: true
+      required:
+      - id_kategorii
+      - id_dostawcy
+      - nazwa_produktu
+      - cena
+      - stan_magazynowy
+      - wymaga_recepty

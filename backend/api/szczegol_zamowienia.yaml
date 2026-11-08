@@ -134,8 +134,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SzczegolZamowieniaUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
     delete:
       tags:
       - SzczegolZamowienia
@@ -245,3 +245,6 @@ components:
           format: int32
           minimum: 1
           example: 1
+      required:
+      - id_produktu
+      - ilosc

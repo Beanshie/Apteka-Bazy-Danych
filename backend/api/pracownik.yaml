@@ -118,8 +118,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PracownikUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone. Hasło null zachowuje dotychczasowe hasło.
     delete:
       tags:
       - Pracownik
@@ -226,7 +226,8 @@ components:
           maxLength: 255
           format: password
           writeOnly: true
-          description: Hasło wejściowe; backend zapisuje wyłącznie jego skrót.
+          description: Nowe hasło. Null lub pominięcie zachowuje dotychczasowe hasło.
+          nullable: true
         imie:
           type: string
           maxLength: 50
@@ -243,3 +244,9 @@ components:
         aktywny:
           type: boolean
           example: true
+      required:
+      - login
+      - imie
+      - nazwisko
+      - rola
+      - aktywny

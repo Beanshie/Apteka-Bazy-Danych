@@ -141,8 +141,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ZamowienieUpdate'
-      description: Aktualizuje podane pola. Pominięte właściwości pozostają bez zmian;
-        null jest dozwolony wyłącznie dla pól nullable.
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
     delete:
       tags:
       - Zamowienie
@@ -281,5 +281,10 @@ components:
           minItems: 1
           items:
             $ref: szczegol_zamowienia.yaml#/components/schemas/SzczegolZamowieniaCreate
-          description: Jeśli podano, lista zastępuje dotychczasowe pozycje; backend
-            ponownie oblicza sumę.
+          description: Pełna lista zastępuje wszystkie pozycje; backend zapisuje aktualne
+            ceny produktów i ponownie oblicza sumę.
+      required:
+      - id_klienta
+      - id_adresu
+      - status_zamowienia
+      - pozycje
