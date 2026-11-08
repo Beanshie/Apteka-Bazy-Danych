@@ -39,7 +39,8 @@ public class ProduktService {
       };
 
   Produkt read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT"
@@ -49,7 +50,7 @@ public class ProduktService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -78,16 +79,24 @@ public class ProduktService {
   }
 
   private void validate(ProduktCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKategorii(), "id_kategorii");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKategorii() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_kategorii");
     if (value.getIdKategorii() != null) checkNumber(value.getIdKategorii(), 1, false);
     if (value.getIdKategorii() != null) kategoria.read(value.getIdKategorii(), false);
-    requireValue(value.getIdDostawcy(), "id_dostawcy");
+    if (value.getIdDostawcy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_dostawcy");
     if (value.getIdDostawcy() != null) checkNumber(value.getIdDostawcy(), 1, false);
     if (value.getIdDostawcy() != null) dostawca.read(value.getIdDostawcy(), false);
-    requireValue(value.getNazwaProduktu(), "nazwa_produktu");
+    if (value.getNazwaProduktu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwa_produktu");
     if (value.getNazwaProduktu() != null) checkText(value.getNazwaProduktu(), 100, true);
-    requireValue(value.getCena(), "cena");
+    if (value.getCena() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: cena");
     if (value.getCena() != null) checkNumber(value.getCena(), 0, true);
     if (value.getStanMagazynowy() != null) checkNumber(value.getStanMagazynowy(), 0, false);
   }
@@ -107,20 +116,32 @@ public class ProduktService {
   }
 
   private void validate(ProduktUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKategorii(), "id_kategorii");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKategorii() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_kategorii");
     if (value.getIdKategorii() != null) checkNumber(value.getIdKategorii(), 1, false);
     if (value.getIdKategorii() != null) kategoria.read(value.getIdKategorii(), false);
-    requireValue(value.getIdDostawcy(), "id_dostawcy");
+    if (value.getIdDostawcy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_dostawcy");
     if (value.getIdDostawcy() != null) checkNumber(value.getIdDostawcy(), 1, false);
     if (value.getIdDostawcy() != null) dostawca.read(value.getIdDostawcy(), false);
-    requireValue(value.getNazwaProduktu(), "nazwa_produktu");
+    if (value.getNazwaProduktu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwa_produktu");
     if (value.getNazwaProduktu() != null) checkText(value.getNazwaProduktu(), 100, true);
-    requireValue(value.getCena(), "cena");
+    if (value.getCena() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: cena");
     if (value.getCena() != null) checkNumber(value.getCena(), 0, true);
-    requireValue(value.getStanMagazynowy(), "stan_magazynowy");
+    if (value.getStanMagazynowy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: stan_magazynowy");
     if (value.getStanMagazynowy() != null) checkNumber(value.getStanMagazynowy(), 0, false);
-    requireValue(value.getWymagaRecepty(), "wymaga_recepty");
+    if (value.getWymagaRecepty() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: wymaga_recepty");
   }
 
   private Map<String, Object> parameters(ProduktUpdate value) {
@@ -177,12 +198,8 @@ public class ProduktService {
     jdbc.update("DELETE FROM Produkt WHERE id_produktu=:id", params("id", id));
   }
 
-  void lockProducts() {
-    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
-  }
-
   void release(List<SzczegolZamowienia> lines) {
-    lockProducts();
+    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
     for (var l : lines)
       jdbc.update(
           "UPDATE Produkt SET stan_magazynowy=stan_magazynowy+:q WHERE id_produktu=:p",
@@ -195,23 +212,8 @@ public class ProduktService {
               "UPDATE Produkt SET stan_magazynowy=stan_magazynowy-:q WHERE id_produktu=:p AND"
                   + " stan_magazynowy>=:q",
               params("q", l.getIlosc(), "p", l.getIdProduktu()))
-          == 0) throw bad("Brak produktu na stanie");
-  }
-
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
+          == 0)
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Brak produktu na stanie");
   }
 
   private static Map<String, Object> params(Object... pairs) {
@@ -221,15 +223,18 @@ public class ProduktService {
   }
 
   private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank()) throw bad("Puste pole");
-    if (max > 0 && text.length() > max) throw bad("Zbyt długie pole");
+    if (required && text.isBlank())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
+    if (max > 0 && text.length() > max)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
   }
 
   private static void checkNumber(Number value, int min, boolean money) {
     BigDecimal d = new BigDecimal(value.toString());
-    if (d.compareTo(BigDecimal.valueOf(min)) < 0) throw bad("Niepoprawna liczba");
+    if (d.compareTo(BigDecimal.valueOf(min)) < 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna liczba");
     if (money
         && (d.stripTrailingZeros().scale() > 2 || d.compareTo(new BigDecimal("99999999.99")) > 0))
-      throw bad("Niepoprawna cena");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna cena");
   }
 }

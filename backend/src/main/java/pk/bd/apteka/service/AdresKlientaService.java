@@ -36,7 +36,8 @@ public class AdresKlientaService {
       };
 
   AdresKlienta read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT id_adresu,id_klienta,ulica,numer_domu,numer_mieszkania,kod_pocztowy,miasto FROM"
@@ -45,7 +46,7 @@ public class AdresKlientaService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -69,18 +70,27 @@ public class AdresKlientaService {
   }
 
   private void validate(AdresKlientaCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKlienta(), "id_klienta");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKlienta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_klienta");
     if (value.getIdKlienta() != null) checkNumber(value.getIdKlienta(), 1, false);
     if (value.getIdKlienta() != null) klient.read(value.getIdKlienta(), false);
-    requireValue(value.getUlica(), "ulica");
+    if (value.getUlica() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: ulica");
     if (value.getUlica() != null) checkText(value.getUlica(), 100, true);
-    requireValue(value.getNumerDomu(), "numer_domu");
+    if (value.getNumerDomu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: numer_domu");
     if (value.getNumerDomu() != null) checkText(value.getNumerDomu(), 10, true);
     if (value.getNumerMieszkania() != null) checkText(value.getNumerMieszkania(), 10, false);
-    requireValue(value.getKodPocztowy(), "kod_pocztowy");
+    if (value.getKodPocztowy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: kod_pocztowy");
     if (value.getKodPocztowy() != null) checkText(value.getKodPocztowy(), 10, true);
-    requireValue(value.getMiasto(), "miasto");
+    if (value.getMiasto() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: miasto");
     if (value.getMiasto() != null) checkText(value.getMiasto(), 50, true);
   }
 
@@ -97,18 +107,27 @@ public class AdresKlientaService {
   }
 
   private void validate(AdresKlientaUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKlienta(), "id_klienta");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKlienta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_klienta");
     if (value.getIdKlienta() != null) checkNumber(value.getIdKlienta(), 1, false);
     if (value.getIdKlienta() != null) klient.read(value.getIdKlienta(), false);
-    requireValue(value.getUlica(), "ulica");
+    if (value.getUlica() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: ulica");
     if (value.getUlica() != null) checkText(value.getUlica(), 100, true);
-    requireValue(value.getNumerDomu(), "numer_domu");
+    if (value.getNumerDomu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: numer_domu");
     if (value.getNumerDomu() != null) checkText(value.getNumerDomu(), 10, true);
     if (value.getNumerMieszkania() != null) checkText(value.getNumerMieszkania(), 10, false);
-    requireValue(value.getKodPocztowy(), "kod_pocztowy");
+    if (value.getKodPocztowy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: kod_pocztowy");
     if (value.getKodPocztowy() != null) checkText(value.getKodPocztowy(), 10, true);
-    requireValue(value.getMiasto(), "miasto");
+    if (value.getMiasto() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: miasto");
     if (value.getMiasto() != null) checkText(value.getMiasto(), 50, true);
   }
 
@@ -172,23 +191,8 @@ public class AdresKlientaService {
                 + " WHERE a.id_adresu=:id AND a.id_klienta<>z.id_klienta",
             params("id", id),
             Integer.class)
-        > 0) throw bad("Adres należy do innego klienta");
-  }
-
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
+        > 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adres należy do innego klienta");
   }
 
   private static Map<String, Object> params(Object... pairs) {
@@ -198,15 +202,18 @@ public class AdresKlientaService {
   }
 
   private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank()) throw bad("Puste pole");
-    if (max > 0 && text.length() > max) throw bad("Zbyt długie pole");
+    if (required && text.isBlank())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
+    if (max > 0 && text.length() > max)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
   }
 
   private static void checkNumber(Number value, int min, boolean money) {
     BigDecimal d = new BigDecimal(value.toString());
-    if (d.compareTo(BigDecimal.valueOf(min)) < 0) throw bad("Niepoprawna liczba");
+    if (d.compareTo(BigDecimal.valueOf(min)) < 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna liczba");
     if (money
         && (d.stripTrailingZeros().scale() > 2 || d.compareTo(new BigDecimal("99999999.99")) > 0))
-      throw bad("Niepoprawna cena");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna cena");
   }
 }

@@ -31,7 +31,8 @@ public class DostawcaService {
       };
 
   Dostawca read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT id_dostawcy,nazwa_firmy,nip,telefon,email FROM Dostawca WHERE id_dostawcy=:id"
@@ -39,7 +40,7 @@ public class DostawcaService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -58,8 +59,11 @@ public class DostawcaService {
   }
 
   private void validate(DostawcaCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getNazwaFirmy(), "nazwa_firmy");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getNazwaFirmy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwa_firmy");
     if (value.getNazwaFirmy() != null) checkText(value.getNazwaFirmy(), 100, true);
     if (value.getNip() != null) checkText(value.getNip(), 15, false);
     if (value.getTelefon() != null) checkText(value.getTelefon(), 20, false);
@@ -77,8 +81,11 @@ public class DostawcaService {
   }
 
   private void validate(DostawcaUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getNazwaFirmy(), "nazwa_firmy");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getNazwaFirmy() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwa_firmy");
     if (value.getNazwaFirmy() != null) checkText(value.getNazwaFirmy(), 100, true);
     if (value.getNip() != null) checkText(value.getNip(), 15, false);
     if (value.getTelefon() != null) checkText(value.getTelefon(), 20, false);
@@ -134,22 +141,6 @@ public class DostawcaService {
     jdbc.update("DELETE FROM Dostawca WHERE id_dostawcy=:id", params("id", id));
   }
 
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
-  }
-
   private static Map<String, Object> params(Object... pairs) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (int i = 0; i < pairs.length; i += 2) m.put((String) pairs[i], pairs[i + 1]);
@@ -157,7 +148,9 @@ public class DostawcaService {
   }
 
   private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank()) throw bad("Puste pole");
-    if (max > 0 && text.length() > max) throw bad("Zbyt długie pole");
+    if (required && text.isBlank())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
+    if (max > 0 && text.length() > max)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
   }
 }

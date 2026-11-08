@@ -46,8 +46,11 @@ request validation, malformed JSON, and service HTTP status exceptions.
 Each resource has a JDBC service containing its own SQL, validation, and typed
 DTO mapping, plus a controller implementing its generated interface. There is no
 shared CRUD store or runtime table/column registry. Order coordination belongs to
-`ZamowienieService`, item CRUD to `SzczegolZamowieniaService`, and stock SQL to
-`ProduktService`. Validation and supporting helpers are private to each service. Updates replace the full writable object; nullable fields may be cleared.
+`ZamowienieService`, item CRUD to `SzczegolZamowieniaService`, and stock changes to
+`ProduktService`. Product locking SQL is inline in both order coordination and stock
+release. One-line validation and exception helpers are inline at their call sites;
+longer helpers remain private to each service. Updates replace the full writable
+object; nullable fields may be cleared.
 Null or omitted passwords preserve the existing hash. Account passwords are hashed with BCrypt and never included in responses.
 MariaDB sessions and API timestamp conversions use UTC.
 

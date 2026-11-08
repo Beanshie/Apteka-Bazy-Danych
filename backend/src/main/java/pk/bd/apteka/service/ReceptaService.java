@@ -34,7 +34,8 @@ public class ReceptaService {
       };
 
   Recepta read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT id_recepty,id_klienta,kod_recepty,pesel_pacjenta,status_recepty FROM Recepta"
@@ -43,7 +44,7 @@ public class ReceptaService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -75,13 +76,20 @@ public class ReceptaService {
   }
 
   private void validate(ReceptaCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKlienta(), "id_klienta");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKlienta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_klienta");
     if (value.getIdKlienta() != null) checkNumber(value.getIdKlienta(), 1, false);
     if (value.getIdKlienta() != null) klient.read(value.getIdKlienta(), false);
-    requireValue(value.getKodRecepty(), "kod_recepty");
+    if (value.getKodRecepty() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: kod_recepty");
     if (value.getKodRecepty() != null) checkText(value.getKodRecepty(), 10, true);
-    requireValue(value.getPeselPacjenta(), "pesel_pacjenta");
+    if (value.getPeselPacjenta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: pesel_pacjenta");
     if (value.getPeselPacjenta() != null) checkText(value.getPeselPacjenta(), 11, true);
   }
 
@@ -98,15 +106,24 @@ public class ReceptaService {
   }
 
   private void validate(ReceptaUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKlienta(), "id_klienta");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKlienta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_klienta");
     if (value.getIdKlienta() != null) checkNumber(value.getIdKlienta(), 1, false);
     if (value.getIdKlienta() != null) klient.read(value.getIdKlienta(), false);
-    requireValue(value.getKodRecepty(), "kod_recepty");
+    if (value.getKodRecepty() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: kod_recepty");
     if (value.getKodRecepty() != null) checkText(value.getKodRecepty(), 10, true);
-    requireValue(value.getPeselPacjenta(), "pesel_pacjenta");
+    if (value.getPeselPacjenta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: pesel_pacjenta");
     if (value.getPeselPacjenta() != null) checkText(value.getPeselPacjenta(), 11, true);
-    requireValue(value.getStatusRecepty(), "status_recepty");
+    if (value.getStatusRecepty() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: status_recepty");
   }
 
   private Map<String, Object> parameters(ReceptaUpdate value) {
@@ -169,23 +186,8 @@ public class ReceptaService {
                 + " WHERE r.id_recepty=:id AND r.id_klienta<>z.id_klienta",
             params("id", id),
             Integer.class)
-        > 0) throw bad("Recepta należy do innego klienta");
-  }
-
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
+        > 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Recepta należy do innego klienta");
   }
 
   private static Map<String, Object> params(Object... pairs) {
@@ -195,15 +197,18 @@ public class ReceptaService {
   }
 
   private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank()) throw bad("Puste pole");
-    if (max > 0 && text.length() > max) throw bad("Zbyt długie pole");
+    if (required && text.isBlank())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
+    if (max > 0 && text.length() > max)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
   }
 
   private static void checkNumber(Number value, int min, boolean money) {
     BigDecimal d = new BigDecimal(value.toString());
-    if (d.compareTo(BigDecimal.valueOf(min)) < 0) throw bad("Niepoprawna liczba");
+    if (d.compareTo(BigDecimal.valueOf(min)) < 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna liczba");
     if (money
         && (d.stripTrailingZeros().scale() > 2 || d.compareTo(new BigDecimal("99999999.99")) > 0))
-      throw bad("Niepoprawna cena");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna cena");
   }
 }

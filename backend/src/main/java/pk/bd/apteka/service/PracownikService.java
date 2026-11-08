@@ -34,7 +34,8 @@ public class PracownikService {
       };
 
   Pracownik read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT id_pracownika,login,imie,nazwisko,rola,aktywny FROM Pracownik WHERE"
@@ -43,7 +44,7 @@ public class PracownikService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -62,14 +63,19 @@ public class PracownikService {
   }
 
   private void validate(PracownikCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getLogin(), "login");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getLogin() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: login");
     if (value.getLogin() != null) checkText(value.getLogin(), 50, true);
-    requireValue(value.getHaslo(), "haslo");
+    if (value.getHaslo() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: haslo");
     if (value.getHaslo() != null) checkText(value.getHaslo(), 255, true);
-    requireValue(value.getImie(), "imie");
+    if (value.getImie() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: imie");
     if (value.getImie() != null) checkText(value.getImie(), 50, true);
-    requireValue(value.getNazwisko(), "nazwisko");
+    if (value.getNazwisko() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwisko");
     if (value.getNazwisko() != null) checkText(value.getNazwisko(), 50, true);
   }
 
@@ -86,16 +92,22 @@ public class PracownikService {
   }
 
   private void validate(PracownikUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getLogin(), "login");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getLogin() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: login");
     if (value.getLogin() != null) checkText(value.getLogin(), 50, true);
     if (value.getHaslo() != null) checkText(value.getHaslo(), 255, true);
-    requireValue(value.getImie(), "imie");
+    if (value.getImie() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: imie");
     if (value.getImie() != null) checkText(value.getImie(), 50, true);
-    requireValue(value.getNazwisko(), "nazwisko");
+    if (value.getNazwisko() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwisko");
     if (value.getNazwisko() != null) checkText(value.getNazwisko(), 50, true);
-    requireValue(value.getRola(), "rola");
-    requireValue(value.getAktywny(), "aktywny");
+    if (value.getRola() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: rola");
+    if (value.getAktywny() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: aktywny");
   }
 
   private Map<String, Object> parameters(PracownikUpdate value) {
@@ -150,22 +162,6 @@ public class PracownikService {
     jdbc.update("DELETE FROM Pracownik WHERE id_pracownika=:id", params("id", id));
   }
 
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
-  }
-
   private static Map<String, Object> params(Object... pairs) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (int i = 0; i < pairs.length; i += 2) m.put((String) pairs[i], pairs[i + 1]);
@@ -173,12 +169,15 @@ public class PracownikService {
   }
 
   private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank()) throw bad("Puste pole");
-    if (max > 0 && text.length() > max) throw bad("Zbyt długie pole");
+    if (required && text.isBlank())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
+    if (max > 0 && text.length() > max)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
   }
 
   private static String hash(String text) {
-    if (text.getBytes(StandardCharsets.UTF_8).length > 72) throw bad("Hasło przekracza 72 bajty");
+    if (text.getBytes(StandardCharsets.UTF_8).length > 72)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hasło przekracza 72 bajty");
     return new BCryptPasswordEncoder().encode(text);
   }
 }

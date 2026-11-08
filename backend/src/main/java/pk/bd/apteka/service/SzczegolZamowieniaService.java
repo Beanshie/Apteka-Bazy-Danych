@@ -43,7 +43,8 @@ public class SzczegolZamowieniaService {
       };
 
   SzczegolZamowienia read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa FROM"
@@ -52,7 +53,7 @@ public class SzczegolZamowieniaService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -63,7 +64,8 @@ public class SzczegolZamowieniaService {
 
   private SzczegolZamowienia itemInOrder(Integer id, Integer idZamowienia) {
     var result = read(id, false);
-    if (!Objects.equals(result.getIdZamowienia(), idZamowienia)) throw missing();
+    if (!Objects.equals(result.getIdZamowienia(), idZamowienia))
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     return result;
   }
 
@@ -82,8 +84,11 @@ public class SzczegolZamowieniaService {
   }
 
   private void validate(SzczegolZamowieniaCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdProduktu(), "id_produktu");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdProduktu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_produktu");
     if (value.getIdProduktu() != null) checkNumber(value.getIdProduktu(), 1, false);
     if (value.getIdProduktu() != null) produkt.read(value.getIdProduktu(), false);
     if (value.getIdRecepty() != null) checkNumber(value.getIdRecepty(), 1, false);
@@ -101,13 +106,17 @@ public class SzczegolZamowieniaService {
   }
 
   private void validate(SzczegolZamowieniaUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdProduktu(), "id_produktu");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdProduktu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_produktu");
     if (value.getIdProduktu() != null) checkNumber(value.getIdProduktu(), 1, false);
     if (value.getIdProduktu() != null) produkt.read(value.getIdProduktu(), false);
     if (value.getIdRecepty() != null) checkNumber(value.getIdRecepty(), 1, false);
     if (value.getIdRecepty() != null) recepta.read(value.getIdRecepty(), false);
-    requireValue(value.getIlosc(), "ilosc");
+    if (value.getIlosc() == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: ilosc");
     if (value.getIlosc() != null) checkNumber(value.getIlosc(), 1, false);
   }
 
@@ -184,22 +193,6 @@ public class SzczegolZamowieniaService {
     zamowienie.finish(idZamowienia, before, Set.of());
   }
 
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
-  }
-
   private static Map<String, Object> params(Object... pairs) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (int i = 0; i < pairs.length; i += 2) m.put((String) pairs[i], pairs[i + 1]);
@@ -208,9 +201,10 @@ public class SzczegolZamowieniaService {
 
   private static void checkNumber(Number value, int min, boolean money) {
     BigDecimal d = new BigDecimal(value.toString());
-    if (d.compareTo(BigDecimal.valueOf(min)) < 0) throw bad("Niepoprawna liczba");
+    if (d.compareTo(BigDecimal.valueOf(min)) < 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna liczba");
     if (money
         && (d.stripTrailingZeros().scale() > 2 || d.compareTo(new BigDecimal("99999999.99")) > 0))
-      throw bad("Niepoprawna cena");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna cena");
   }
 }

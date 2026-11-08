@@ -51,7 +51,8 @@ public class ZamowienieService {
       };
 
   Zamowienie read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT"
@@ -61,7 +62,7 @@ public class ZamowienieService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -93,11 +94,16 @@ public class ZamowienieService {
   }
 
   private void validate(ZamowienieCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKlienta(), "id_klienta");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKlienta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_klienta");
     if (value.getIdKlienta() != null) checkNumber(value.getIdKlienta(), 1, false);
     if (value.getIdKlienta() != null) klient.read(value.getIdKlienta(), false);
-    requireValue(value.getIdAdresu(), "id_adresu");
+    if (value.getIdAdresu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_adresu");
     if (value.getIdAdresu() != null) checkNumber(value.getIdAdresu(), 1, false);
     if (value.getIdAdresu() != null) adresklienta.read(value.getIdAdresu(), false);
   }
@@ -114,14 +120,21 @@ public class ZamowienieService {
   }
 
   private void validate(ZamowienieUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdKlienta(), "id_klienta");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdKlienta() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_klienta");
     if (value.getIdKlienta() != null) checkNumber(value.getIdKlienta(), 1, false);
     if (value.getIdKlienta() != null) klient.read(value.getIdKlienta(), false);
-    requireValue(value.getIdAdresu(), "id_adresu");
+    if (value.getIdAdresu() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_adresu");
     if (value.getIdAdresu() != null) checkNumber(value.getIdAdresu(), 1, false);
     if (value.getIdAdresu() != null) adresklienta.read(value.getIdAdresu(), false);
-    requireValue(value.getStatusZamowienia(), "status_zamowienia");
+    if (value.getStatusZamowienia() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: status_zamowienia");
   }
 
   private Map<String, Object> parameters(ZamowienieUpdate value) {
@@ -158,7 +171,7 @@ public class ZamowienieService {
 
   Zamowienie begin(Integer id) {
     var before = read(id, true);
-    produkt.lockProducts();
+    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
     if (before.getStatusZamowienia() != Zamowienie.StatusZamowieniaEnum.ANULOWANE)
       produkt.release(lines(id));
     return before;
@@ -168,7 +181,7 @@ public class ZamowienieService {
     var next = read(id, false);
     var address = adresklienta.read(next.getIdAdresu(), true);
     if (!Objects.equals(address.getIdKlienta(), next.getIdKlienta()))
-      throw bad("Adres należy do innego klienta");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adres należy do innego klienta");
     boolean active = next.getStatusZamowienia() != Zamowienie.StatusZamowieniaEnum.ANULOWANE;
     var after = lines(id);
     for (var line : after) {
@@ -180,21 +193,23 @@ public class ZamowienieService {
       if (line.getIdRecepty() != null) {
         var prescription = recepta.read(line.getIdRecepty(), true);
         if (!Objects.equals(prescription.getIdKlienta(), next.getIdKlienta()))
-          throw bad("Recepta należy do innego klienta");
+          throw new ResponseStatusException(
+              HttpStatus.BAD_REQUEST, "Recepta należy do innego klienta");
         if (strict
             && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.NOWA
             && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.ZWERYFIKOWANA)
-          throw bad("Recepta nie jest ważna");
+          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Recepta nie jest ważna");
       }
       if (strict && product.getWymagaRecepty() && line.getIdRecepty() == null)
-        throw bad("Wymagana recepta");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Wymagana recepta");
     }
     if (active) produkt.reserve(after);
     BigDecimal total =
         after.stream()
             .map(line -> line.getCenaJednostkowa().multiply(BigDecimal.valueOf(line.getIlosc())))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-    if (total.compareTo(new BigDecimal("99999999.99")) > 0) throw bad("Zbyt duża suma");
+    if (total.compareTo(new BigDecimal("99999999.99")) > 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt duża suma");
     jdbc.update(
         "UPDATE Zamowienie SET suma_calkowita=:total WHERE id_zamowienia=:id",
         params("total", total, "id", id));
@@ -233,13 +248,19 @@ public class ZamowienieService {
   }
 
   private Set<Integer> replaceLines(Integer id, List<SzczegolZamowieniaCreate> items) {
-    if (items == null || items.isEmpty()) throw bad("Wymagane pozycje");
+    if (items == null || items.isEmpty())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Wymagane pozycje");
     jdbc.update("DELETE FROM Szczegol_Zamowienia WHERE id_zamowienia=:id", params("id", id));
     Set<Integer> check = new HashSet<>();
     for (var item : items) {
-      requireValue(item, "pozycja");
-      requireValue(item.getIdProduktu(), "id_produktu");
-      requireId(item.getIdProduktu());
+      if (item == null)
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "Pole nie może być null: pozycja");
+      if (item.getIdProduktu() == null)
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "Pole nie może być null: id_produktu");
+      if (item.getIdProduktu() == null || item.getIdProduktu() < 1)
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
       int quantity = item.getIlosc() == null ? 1 : item.getIlosc();
       checkNumber(quantity, 1, false);
       if (item.getIdRecepty() != null) recepta.read(item.getIdRecepty(), false);
@@ -268,22 +289,6 @@ public class ZamowienieService {
     return check;
   }
 
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
-  }
-
   private static Map<String, Object> params(Object... pairs) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (int i = 0; i < pairs.length; i += 2) m.put((String) pairs[i], pairs[i + 1]);
@@ -292,9 +297,10 @@ public class ZamowienieService {
 
   private static void checkNumber(Number value, int min, boolean money) {
     BigDecimal d = new BigDecimal(value.toString());
-    if (d.compareTo(BigDecimal.valueOf(min)) < 0) throw bad("Niepoprawna liczba");
+    if (d.compareTo(BigDecimal.valueOf(min)) < 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna liczba");
     if (money
         && (d.stripTrailingZeros().scale() > 2 || d.compareTo(new BigDecimal("99999999.99")) > 0))
-      throw bad("Niepoprawna cena");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna cena");
   }
 }

@@ -40,7 +40,8 @@ public class PlatnoscService {
       };
 
   Platnosc read(Integer id, boolean lock) {
-    requireId(id);
+    if (id == null || id < 1)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
     try {
       return jdbc.queryForObject(
           "SELECT id_platnosci,id_zamowienia,metoda_platnosci,status_platnosci,data_platnosci FROM"
@@ -49,7 +50,7 @@ public class PlatnoscService {
           params("id", id),
           ROW_MAPPER);
     } catch (EmptyResultDataAccessException error) {
-      throw missing();
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
     }
   }
 
@@ -73,11 +74,16 @@ public class PlatnoscService {
   }
 
   private void validate(PlatnoscCreate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdZamowienia(), "id_zamowienia");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdZamowienia() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_zamowienia");
     if (value.getIdZamowienia() != null) checkNumber(value.getIdZamowienia(), 1, false);
     if (value.getIdZamowienia() != null) zamowienie.read(value.getIdZamowienia(), false);
-    requireValue(value.getMetodaPlatnosci(), "metoda_platnosci");
+    if (value.getMetodaPlatnosci() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: metoda_platnosci");
     if (value.getMetodaPlatnosci() != null) checkText(value.getMetodaPlatnosci(), 30, true);
   }
 
@@ -101,13 +107,20 @@ public class PlatnoscService {
   }
 
   private void validate(PlatnoscUpdate value) {
-    requireValue(value, "body");
-    requireValue(value.getIdZamowienia(), "id_zamowienia");
+    if (value == null)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
+    if (value.getIdZamowienia() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: id_zamowienia");
     if (value.getIdZamowienia() != null) checkNumber(value.getIdZamowienia(), 1, false);
     if (value.getIdZamowienia() != null) zamowienie.read(value.getIdZamowienia(), false);
-    requireValue(value.getMetodaPlatnosci(), "metoda_platnosci");
+    if (value.getMetodaPlatnosci() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: metoda_platnosci");
     if (value.getMetodaPlatnosci() != null) checkText(value.getMetodaPlatnosci(), 30, true);
-    requireValue(value.getStatusPlatnosci(), "status_platnosci");
+    if (value.getStatusPlatnosci() == null)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pole nie może być null: status_platnosci");
   }
 
   private Map<String, Object> parameters(PlatnoscUpdate value) {
@@ -167,22 +180,6 @@ public class PlatnoscService {
     jdbc.update("DELETE FROM Platnosc WHERE id_platnosci=:id", params("id", id));
   }
 
-  private static ResponseStatusException bad(String message) {
-    return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-  }
-
-  private static ResponseStatusException missing() {
-    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
-  }
-
-  private static void requireValue(Object value, String field) {
-    if (value == null) throw bad("Pole nie może być null: " + field);
-  }
-
-  private static void requireId(Integer id) {
-    if (id == null || id < 1) throw bad("Niepoprawne ID");
-  }
-
   private static Map<String, Object> params(Object... pairs) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (int i = 0; i < pairs.length; i += 2) m.put((String) pairs[i], pairs[i + 1]);
@@ -190,15 +187,18 @@ public class PlatnoscService {
   }
 
   private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank()) throw bad("Puste pole");
-    if (max > 0 && text.length() > max) throw bad("Zbyt długie pole");
+    if (required && text.isBlank())
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
+    if (max > 0 && text.length() > max)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
   }
 
   private static void checkNumber(Number value, int min, boolean money) {
     BigDecimal d = new BigDecimal(value.toString());
-    if (d.compareTo(BigDecimal.valueOf(min)) < 0) throw bad("Niepoprawna liczba");
+    if (d.compareTo(BigDecimal.valueOf(min)) < 0)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna liczba");
     if (money
         && (d.stripTrailingZeros().scale() > 2 || d.compareTo(new BigDecimal("99999999.99")) > 0))
-      throw bad("Niepoprawna cena");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawna cena");
   }
 }
