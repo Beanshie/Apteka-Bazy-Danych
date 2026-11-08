@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Lek } from '../types/lek';
-import { lekiService } from '../services/lekiService';
+import type { Produkt } from '../types/produkt';
+import { produktyService } from '../services/produktyService';
 import { Link, useNavigate } from 'react-router-dom';
 import { RxBadge, StockBadge } from './Badges';
 import { zl } from '../utils/format';
@@ -16,7 +16,7 @@ const STATUS: Record<Status, { badge: string; dot: string; label: string }> = {
   success: {
     badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     dot: 'bg-emerald-500',
-    label: 'Połączono (Localhost)',
+    label: 'Połączono z API',
   },
   error: {
     badge: 'bg-rose-50 text-rose-700 border-rose-200',
@@ -25,9 +25,9 @@ const STATUS: Record<Status, { badge: string; dot: string; label: string }> = {
   },
 };
 
-export const LekiList: React.FC = () => {
+export const ProduktyList: React.FC = () => {
   const navigate = useNavigate();
-  const [leki, setLeki] = useState<Lek[]>([]);
+  const [produkty, setProdukty] = useState<Produkt[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<Status>('connecting');
   const [error, setError] = useState<string | null>(null);
@@ -38,11 +38,11 @@ export const LekiList: React.FC = () => {
     setError(null);
     setStatus('connecting');
     try {
-      setLeki(await lekiService.getAll());
+      setProdukty(await produktyService.getAll());
       setStatus('success');
     } catch (err) {
       console.error(err);
-      setLeki([]);
+      setProdukty([]);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Nieznany błąd');
     } finally {
@@ -56,14 +56,13 @@ export const LekiList: React.FC = () => {
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    if (!q) return leki;
-    return leki.filter(
+    if (!q) return produkty;
+    return produkty.filter(
       (l) =>
-        l.nazwa?.toLowerCase().includes(q) ||
-        l.opis?.toLowerCase().includes(q) ||
-        String(l.lek_id) === q,
+        l.nazwa_produktu?.toLowerCase().includes(q) ||
+        String(l.id_produktu) === q,
     );
-  }, [leki, query]);
+  }, [produkty, query]);
 
   const st = STATUS[status];
 
@@ -81,7 +80,7 @@ export const LekiList: React.FC = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj według nazwy, opisu lub ID..."
+            placeholder="Szukaj według nazwy lub ID..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400"
           />
         </div>
@@ -108,12 +107,11 @@ export const LekiList: React.FC = () => {
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-900">
           <h3 className="font-semibold text-rose-950">
             Nie udało się pobrać danych (
-            <code className="text-xs bg-rose-100 px-1.5 py-0.5 rounded font-mono">/api/v1/leki</code>)
+            <code className="text-xs bg-rose-100 px-1.5 py-0.5 rounded font-mono">/api/v1/produkty</code>)
           </h3>
           <p className="text-xs sm:text-sm text-rose-800 mt-1">{error}</p>
           <ul className="text-xs text-rose-800 space-y-1 list-disc pl-4 mt-3">
-            <li>Sprawdź, czy backend działa na porcie <code className="font-mono">8080</code>.</li>
-            <li>Frontend musi działać na <code className="font-mono">http://localhost:5173</code> (CORS).</li>
+            <li>Sprawdź, czy backend działa i czy proxy API jest poprawnie skonfigurowane.</li>
           </ul>
         </div>
       )}
@@ -124,7 +122,7 @@ export const LekiList: React.FC = () => {
           {loading && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-3">
               <div className="w-9 h-9 border-[3px] border-teal-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm font-medium text-slate-600">Pobieranie listy leków...</p>
+              <p className="text-sm font-medium text-slate-600">Pobieranie listy produktów...</p>
             </div>
           )}
 
@@ -132,36 +130,29 @@ export const LekiList: React.FC = () => {
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
                 <th className="py-3.5 px-4 sm:px-6 w-16">ID</th>
-                <th className="py-3.5 px-4 sm:px-6">Nazwa leku</th>
+                <th className="py-3.5 px-4 sm:px-6">Nazwa produktu</th>
                 <th className="py-3.5 px-4 sm:px-6">Cena</th>
                 <th className="py-3.5 px-4 sm:px-6">Recepta (Rx)</th>
                 <th className="py-3.5 px-4 sm:px-6">Dostępność</th>
-                <th className="py-3.5 px-4 sm:px-6 min-w-[200px]">Opis</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {filtered.map((lek) => (
+              {filtered.map((produkt) => (
                 <tr
-                  key={lek.lek_id}
-                  onClick={() => navigate(`/leki/${lek.lek_id}`)}
+                  key={produkt.id_produktu}
+                  onClick={() => navigate(`/produkty/${produkt.id_produktu}`)}
                   className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                 >
-                  <td className="py-4 px-4 sm:px-6 font-mono text-xs text-slate-400">#{lek.lek_id}</td>
+                  <td className="py-4 px-4 sm:px-6 font-mono text-xs text-slate-400">#{produkt.id_produktu}</td>
                   <td className="py-4 px-4 sm:px-6 font-semibold text-slate-900">
-                    <Link to={`/leki/${lek.lek_id}`} className="hover:text-teal-700">{lek.nazwa}</Link>
+                    <Link to={`/produkty/${produkt.id_produktu}`} className="hover:text-teal-700">{produkt.nazwa_produktu}</Link>
                   </td>
-                  <td className="py-4 px-4 sm:px-6 font-medium text-slate-900 whitespace-nowrap">{zl(lek.cena)}</td>
+                  <td className="py-4 px-4 sm:px-6 font-medium text-slate-900 whitespace-nowrap">{zl(produkt.cena)}</td>
                   <td className="py-4 px-4 sm:px-6 whitespace-nowrap">
-                    <RxBadge required={!!lek.wymagana_Recepta} />
+                    <RxBadge required={!!produkt.wymaga_recepty} />
                   </td>
                   <td className="py-4 px-4 sm:px-6 whitespace-nowrap">
-                    <StockBadge qty={lek.dostepne ?? 0} />
-                  </td>
-                  <td
-                    className="py-4 px-4 sm:px-6 text-slate-600 text-xs leading-relaxed max-w-md truncate"
-                    title={lek.opis}
-                  >
-                    {lek.opis || 'Brak opisu'}
+                    <StockBadge qty={produkt.stan_magazynowy ?? 0} />
                   </td>
                 </tr>
               ))}
@@ -179,8 +170,8 @@ export const LekiList: React.FC = () => {
         </div>
 
         <div className="bg-slate-50/50 px-4 sm:px-6 py-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
-          <span>Wyświetlono {filtered.length} z {leki.length} pozycji</span>
-          <span className="font-mono text-[11px] text-slate-400">Endpoint: /api/v1/leki</span>
+          <span>Wyświetlono {filtered.length} z {produkty.length} pozycji</span>
+          <span className="font-mono text-[11px] text-slate-400">Endpoint: /api/v1/produkty</span>
         </div>
       </div>
     </div>

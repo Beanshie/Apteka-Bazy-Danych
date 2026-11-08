@@ -16,7 +16,7 @@ export const Layout = () => {
             </div>
             <div>
               <h1 className="text-lg font-bold text-slate-900 leading-tight">System Apteczny</h1>
-              <p className="text-xs text-slate-500">Menedżer Bazy Leków REST API</p>
+              <p className="text-xs text-slate-500">Menedżer Bazy Produktów REST API</p>
             </div>
           </Link>
 

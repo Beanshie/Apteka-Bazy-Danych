@@ -10,7 +10,7 @@ export const CartPage: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-16 text-center">
         <p className="text-slate-700 font-medium">Twój koszyk jest pusty</p>
         <Link to="/" className="inline-block mt-4 text-sm font-medium text-teal-700 hover:underline">
-          Wróć do listy leków
+          Wróć do listy produktów
         </Link>
       </div>
     );
@@ -26,18 +26,18 @@ export const CartPage: React.FC = () => {
           </button>
         </div>
 
-        {items.map(({ lek, ilosc }) => (
-          <div key={lek.lek_id} className="px-6 py-4 flex flex-wrap items-center gap-4">
+        {items.map(({ produkt, ilosc }) => (
+          <div key={produkt.id_produktu} className="px-6 py-4 flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[180px]">
-              <Link to={`/leki/${lek.lek_id}`} className="font-semibold text-slate-900 hover:text-teal-700">
-                {lek.nazwa}
+              <Link to={`/produkty/${produkt.id_produktu}`} className="font-semibold text-slate-900 hover:text-teal-700">
+                {produkt.nazwa_produktu}
               </Link>
-              <p className="text-xs text-slate-400 mt-0.5">{zl(lek.cena)} / szt.</p>
+              <p className="text-xs text-slate-400 mt-0.5">{zl(produkt.cena)} / szt.</p>
             </div>
 
             <div className="inline-flex items-center border border-slate-200 rounded-xl overflow-hidden">
               <button
-                onClick={() => setQuantity(lek.lek_id, ilosc - 1)}
+                onClick={() => setQuantity(produkt.id_produktu, ilosc - 1)}
                 disabled={ilosc <= 1}
                 className="w-8 h-8 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
               >
@@ -45,18 +45,18 @@ export const CartPage: React.FC = () => {
               </button>
               <span className="w-9 text-center text-sm font-semibold">{ilosc}</span>
               <button
-                onClick={() => setQuantity(lek.lek_id, ilosc + 1)}
-                disabled={ilosc >= (lek.dostepne ?? 0)}
+                onClick={() => setQuantity(produkt.id_produktu, ilosc + 1)}
+                disabled={ilosc >= (produkt.stan_magazynowy ?? 0)}
                 className="w-8 h-8 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
               >
                 +
               </button>
             </div>
 
-            <p className="w-24 text-right font-semibold text-slate-900">{zl(ilosc * lek.cena)}</p>
+            <p className="w-24 text-right font-semibold text-slate-900">{zl(ilosc * produkt.cena)}</p>
 
             <button
-              onClick={() => remove(lek.lek_id)}
+              onClick={() => remove(produkt.id_produktu)}
               className="text-xs text-slate-400 hover:text-rose-600"
               aria-label="Usuń z koszyka"
             >

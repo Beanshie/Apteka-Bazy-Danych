@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import type { Lek } from '../types/lek';
-import { lekiService } from '../services/lekiService';
+import type { Produkt } from '../types/produkt';
+import { produktyService } from '../services/produktyService';
 import { useCart } from '../context/CartContext';
 import { RxBadge, StockBadge } from './Badges';
 import { zl } from '../utils/format';
 
-export const LekDetails: React.FC = () => {
+export const ProduktDetails: React.FC = () => {
   const { id } = useParams();
   const { items, add } = useCart();
-  const [lek, setLek] = useState<Lek | null>(null);
+  const [produkt, setProdukt] = useState<Produkt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -21,14 +21,14 @@ export const LekDetails: React.FC = () => {
     setError(null);
     setQty(1);
     setAdded(false);
-    lekiService
+    produktyService
       .getById(Number(id))
-      .then(setLek)
+      .then(setProdukt)
       .catch((err) =>
         setError(
           axios.isAxiosError(err) && err.response?.status === 404
-            ? 'Nie znaleziono leku o podanym ID.'
-            : 'Nie udało się pobrać danych leku.',
+            ? 'Nie znaleziono produktu o podanym ID.'
+            : 'Nie udało się pobrać danych produktu.',
         ),
       )
       .finally(() => setLoading(false));
@@ -43,24 +43,24 @@ export const LekDetails: React.FC = () => {
     );
   }
 
-  if (error || !lek) {
+  if (error || !produkt) {
     return (
       <div className="space-y-4">
-        <Link to="/" className="text-sm text-slate-500 hover:text-teal-700">← Wróć do listy leków</Link>
+        <Link to="/" className="text-sm text-slate-500 hover:text-teal-700">← Wróć do listy produktów</Link>
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-900 text-sm">
-          {error ?? 'Nie znaleziono leku.'}
+          {error ?? 'Nie znaleziono produktu.'}
         </div>
       </div>
     );
   }
 
-  const stock = lek.dostepne ?? 0;
-  const inCart = items.find((i) => i.lek.lek_id === lek.lek_id)?.ilosc ?? 0;
+  const stock = produkt.stan_magazynowy ?? 0;
+  const inCart = items.find((i) => i.produkt.id_produktu === produkt.id_produktu)?.ilosc ?? 0;
   const maxQty = Math.max(stock - inCart, 0);
   const q = Math.min(qty, Math.max(maxQty, 1));
 
   const handleAdd = () => {
-    add(lek, q);
+    add(produkt, q);
     setAdded(true);
     setQty(1);
   };
@@ -68,7 +68,7 @@ export const LekDetails: React.FC = () => {
   return (
     <div className="space-y-6">
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-teal-700 transition-colors">
-        ← Wróć do listy leków
+        ← Wróć do listy produktów
       </Link>
 
       {/* Główna karta produktu */}
@@ -80,22 +80,22 @@ export const LekDetails: React.FC = () => {
         </div>
 
         <div className="space-y-5">
-          <p className="text-xs font-mono text-slate-400">ID produktu: #{lek.lek_id}</p>
-          <h2 className="text-2xl font-bold text-slate-900 leading-tight">{lek.nazwa}</h2>
+          <p className="text-xs font-mono text-slate-400">ID produktu: #{produkt.id_produktu}</p>
+          <h2 className="text-2xl font-bold text-slate-900 leading-tight">{produkt.nazwa_produktu}</h2>
 
           <div className="flex flex-wrap gap-2">
-            <RxBadge required={!!lek.wymagana_Recepta} />
+            <RxBadge required={!!produkt.wymaga_recepty} />
             <StockBadge qty={stock} />
           </div>
 
           <div className="pt-4 border-t border-slate-100">
-            <p className="text-3xl font-bold text-slate-900">{zl(lek.cena)}</p>
+            <p className="text-3xl font-bold text-slate-900">{zl(produkt.cena)}</p>
             <p className="text-xs text-slate-400 mt-1">cena brutto za 1 opakowanie</p>
           </div>
 
-          {lek.wymagana_Recepta && (
+          {produkt.wymaga_recepty && (
             <p className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-lg p-3">
-              Ten lek jest wydawany wyłącznie z przepisu lekarza.
+              Ten produkt jest wydawany wyłącznie z przepisu lekarza.
             </p>
           )}
 
@@ -147,24 +147,18 @@ export const LekDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Opis */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-3">Opis produktu</h3>
-        <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-          {lek.opis || 'Brak opisu.'}
-        </p>
-      </div>
-
       {/* Specyfikacja */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
         <h3 className="text-lg font-bold text-slate-900 mb-3">Parametry</h3>
         <dl className="text-sm divide-y divide-slate-100">
           {[
-            ['Nazwa', lek.nazwa],
-            ['Cena', zl(lek.cena)],
+            ['Nazwa', produkt.nazwa_produktu],
+            ['Cena', zl(produkt.cena)],
             ['Dostępność', `${stock} szt.`],
-            ['Wydawany z receptą', lek.wymagana_Recepta ? 'Tak' : 'Nie'],
-            ['ID', `#${lek.lek_id}`],
+            ['Wydawany z receptą', produkt.wymaga_recepty ? 'Tak' : 'Nie'],
+            ['ID', `#${produkt.id_produktu}`],
+            ['ID kategorii', `#${produkt.id_kategorii}`],
+            ['ID dostawcy', `#${produkt.id_dostawcy}`],
           ].map(([k, v]) => (
             <div key={k} className="grid grid-cols-[200px_1fr] py-2.5">
               <dt className="text-slate-500">{k}</dt>

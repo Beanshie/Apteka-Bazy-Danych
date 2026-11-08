@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Lek } from '../types/lek';
+import type { Produkt } from '../types/produkt';
 
 export interface CartItem {
-  lek: Lek;
+  produkt: Produkt;
   ilosc: number;
 }
 
@@ -10,14 +10,14 @@ interface CartValue {
   items: CartItem[];
   count: number;
   total: number;
-  add: (lek: Lek, ilosc?: number) => void;
+  add: (produkt: Produkt, ilosc?: number) => void;
   setQuantity: (id: number, ilosc: number) => void;
   remove: (id: number) => void;
   clear: () => void;
 }
 
 const CartContext = createContext<CartValue | null>(null);
-const STORAGE_KEY = 'koszyk';
+const STORAGE_KEY = 'koszyk-produkty';
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -36,25 +36,25 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     () => ({
       items,
       count: items.reduce((s, i) => s + i.ilosc, 0),
-      total: items.reduce((s, i) => s + i.ilosc * i.lek.cena, 0),
-      add: (lek, ilosc = 1) =>
+      total: items.reduce((s, i) => s + i.ilosc * i.produkt.cena, 0),
+      add: (produkt, ilosc = 1) =>
         setItems((prev) => {
-          const existing = prev.find((i) => i.lek.lek_id === lek.lek_id);
-          const qty = Math.min((existing?.ilosc ?? 0) + ilosc, lek.dostepne ?? 0);
+          const existing = prev.find((i) => i.produkt.id_produktu === produkt.id_produktu);
+          const qty = Math.min((existing?.ilosc ?? 0) + ilosc, produkt.stan_magazynowy ?? 0);
           if (qty <= 0) return prev;
           return existing
-            ? prev.map((i) => (i.lek.lek_id === lek.lek_id ? { lek, ilosc: qty } : i))
-            : [...prev, { lek, ilosc: qty }];
+            ? prev.map((i) => (i.produkt.id_produktu === produkt.id_produktu ? { produkt, ilosc: qty } : i))
+            : [...prev, { produkt, ilosc: qty }];
         }),
       setQuantity: (id, ilosc) =>
         setItems((prev) =>
           prev.map((i) =>
-            i.lek.lek_id === id
-              ? { ...i, ilosc: Math.max(1, Math.min(ilosc, i.lek.dostepne ?? 1)) }
+            i.produkt.id_produktu === id
+              ? { ...i, ilosc: Math.max(1, Math.min(ilosc, i.produkt.stan_magazynowy ?? 1)) }
               : i,
           ),
         ),
-      remove: (id) => setItems((prev) => prev.filter((i) => i.lek.lek_id !== id)),
+      remove: (id) => setItems((prev) => prev.filter((i) => i.produkt.id_produktu !== id)),
       clear: () => setItems([]),
     }),
     [items],
