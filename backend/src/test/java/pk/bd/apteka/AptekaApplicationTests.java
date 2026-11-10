@@ -140,6 +140,95 @@ class AptekaApplicationTests {
     assertEquals(initial, stock());
   }
 
+  @Test
+  void orderReplacementRefreshesPricesDefaultsQuantityAndReleasesOldStock() {
+    int initialFirst = stock();
+    int initialSecond = products.get(2).getStanMagazynowy();
+    var originalPrice = products.get(1).getCena();
+    var replacementPrice = originalPrice.add(java.math.BigDecimal.ONE);
+    var secondPrice = products.get(2).getCena();
+    var order = orders.create(request(1, 2));
+    int id = order.getIdZamowienia();
+    try {
+      jdbc.update("UPDATE Produkt SET cena=? WHERE id_produktu=1", replacementPrice);
+      assertEquals(originalPrice, orders.get(id).getPozycje().getFirst().getCenaJednostkowa());
+      var replaced =
+          orders.update(
+              id,
+              new ZamowienieUpdate()
+                  .idKlienta(1)
+                  .idAdresu(1)
+                  .statusZamowienia(ZamowienieUpdate.StatusZamowieniaEnum.NOWE)
+                  .pozycje(
+                      List.of(
+                          new SzczegolZamowieniaCreate(1),
+                          new SzczegolZamowieniaCreate(2).ilosc(2))));
+      assertEquals(2, replaced.getPozycje().size());
+      assertEquals(1, replaced.getPozycje().getFirst().getIlosc());
+      assertEquals(replacementPrice, replaced.getPozycje().getFirst().getCenaJednostkowa());
+      assertEquals(initialFirst - 1, stock());
+      assertEquals(initialSecond - 2, products.get(2).getStanMagazynowy());
+      assertEquals(
+          replacementPrice.add(secondPrice.multiply(java.math.BigDecimal.valueOf(2))),
+          replaced.getSumaCalkowita());
+      var listed =
+          orders.list(1, "NOWE").stream()
+              .filter(value -> value.getIdZamowienia().equals(id))
+              .findFirst()
+              .orElseThrow();
+      assertEquals(replaced.getPozycje(), listed.getPozycje());
+      assertEquals(java.time.ZoneOffset.UTC, listed.getDataZamowienia().getOffset());
+      assertEquals(order.getDataZamowienia(), replaced.getDataZamowienia());
+    } finally {
+      jdbc.update("UPDATE Produkt SET cena=? WHERE id_produktu=1", originalPrice);
+      orders.delete(id);
+    }
+    assertEquals(initialFirst, stock());
+    assertEquals(initialSecond, products.get(2).getStanMagazynowy());
+  }
+
+  @Test
+  void failedOrderReplacementRestoresOriginalItemsStatusTotalAndStock() {
+    var order = orders.create(request(1, 2));
+    int id = order.getIdZamowienia();
+    int reservedStock = stock();
+    int secondStock = products.get(2).getStanMagazynowy();
+    int prescriptionStock = products.get(3).getStanMagazynowy();
+    try {
+      for (var replacement :
+          List.of(
+              new ZamowienieUpdate()
+                  .idKlienta(1)
+                  .idAdresu(1)
+                  .statusZamowienia(ZamowienieUpdate.StatusZamowieniaEnum.NOWE)
+                  .pozycje(
+                      List.of(
+                          new SzczegolZamowieniaCreate(1),
+                          new SzczegolZamowieniaCreate(2).ilosc(Integer.MAX_VALUE))),
+              new ZamowienieUpdate()
+                  .idKlienta(1)
+                  .idAdresu(1)
+                  .statusZamowienia(ZamowienieUpdate.StatusZamowieniaEnum.NOWE)
+                  .pozycje(request(3, 1).getPozycje()),
+              new ZamowienieUpdate()
+                  .idKlienta(1)
+                  .idAdresu(1)
+                  .statusZamowienia(ZamowienieUpdate.StatusZamowieniaEnum.ANULOWANE)
+                  .pozycje(List.of(new SzczegolZamowieniaCreate(3).idRecepty(1))))) {
+        assertThrows(IllegalArgumentException.class, () -> orders.update(id, replacement));
+        var unchanged = orders.get(id);
+        assertEquals(order.getPozycje(), unchanged.getPozycje());
+        assertEquals(order.getStatusZamowienia(), unchanged.getStatusZamowienia());
+        assertEquals(order.getSumaCalkowita(), unchanged.getSumaCalkowita());
+        assertEquals(reservedStock, stock());
+        assertEquals(secondStock, products.get(2).getStanMagazynowy());
+        assertEquals(prescriptionStock, products.get(3).getStanMagazynowy());
+      }
+    } finally {
+      orders.delete(id);
+    }
+  }
+
   @Autowired SzczegolZamowieniaService items;
 
   @Test
@@ -285,6 +374,94 @@ class AptekaApplicationTests {
       addresses.delete(address.getIdAdresu());
       prescriptions.delete(prescription.getIdRecepty());
       prescriptions.delete(prescription.getIdRecepty());
+    }
+  }
+
+  @Test
+  void itemProductChangesAndCancelledEditsPreserveStockAndPrices() {
+    int initialFirst = stock();
+    int initialSecond =
+        jdbc.queryForObject(
+            "SELECT stan_magazynowy FROM Produkt WHERE id_produktu=2", Integer.class);
+    var secondPrice = products.get(2).getCena();
+    var order = orders.create(request(4, 1));
+    int orderId = order.getIdZamowienia();
+    try {
+      var added = items.create(new SzczegolZamowieniaCreate(1), orderId);
+      assertEquals(1, added.getIlosc());
+      assertEquals(initialFirst - 1, stock());
+      var changed =
+          items.update(
+              added.getIdSzczegolu(),
+              new SzczegolZamowieniaUpdate().idProduktu(2).ilosc(2),
+              orderId);
+      assertEquals(0, secondPrice.compareTo(changed.getCenaJednostkowa()));
+      assertEquals(initialFirst, stock());
+      assertEquals(initialSecond - 2, products.get(2).getStanMagazynowy());
+      assertEquals(
+          0,
+          order
+              .getSumaCalkowita()
+              .add(secondPrice.multiply(java.math.BigDecimal.valueOf(2)))
+              .compareTo(orders.get(orderId).getSumaCalkowita()));
+      items.delete(changed.getIdSzczegolu(), orderId);
+      assertEquals(initialSecond, products.get(2).getStanMagazynowy());
+      assertEquals(order.getSumaCalkowita(), orders.get(orderId).getSumaCalkowita());
+      orders.update(
+          orderId,
+          new ZamowienieUpdate()
+              .idKlienta(1)
+              .idAdresu(1)
+              .pozycje(request(1, 1).getPozycje())
+              .statusZamowienia(ZamowienieUpdate.StatusZamowieniaEnum.ANULOWANE));
+      var cancelledItem = items.create(new SzczegolZamowieniaCreate(2), orderId);
+      items.update(
+          cancelledItem.getIdSzczegolu(),
+          new SzczegolZamowieniaUpdate().idProduktu(2).ilosc(3),
+          orderId);
+      assertEquals(initialFirst, stock());
+      assertEquals(initialSecond, products.get(2).getStanMagazynowy());
+      items.delete(cancelledItem.getIdSzczegolu(), orderId);
+      assertEquals(initialSecond, products.get(2).getStanMagazynowy());
+    } finally {
+      orders.delete(orderId);
+    }
+    assertEquals(initialFirst, stock());
+    assertEquals(initialSecond, products.get(2).getStanMagazynowy());
+  }
+
+  @Test
+  void failedItemMutationsRollBackStockItemsAndTotals() {
+    var order = orders.create(request(1, 1));
+    int orderId = order.getIdZamowienia();
+    int lineId = order.getPozycje().getFirst().getIdSzczegolu();
+    int reservedStock = stock();
+    int prescriptionStock = products.get(3).getStanMagazynowy();
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> items.create(new SzczegolZamowieniaCreate(3), orderId));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              items.update(lineId, new SzczegolZamowieniaUpdate().idProduktu(3).ilosc(1), orderId));
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> items.create(new SzczegolZamowieniaCreate(1).ilosc(0), orderId));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              items.update(
+                  lineId,
+                  new SzczegolZamowieniaUpdate().idProduktu(1).ilosc(Integer.MAX_VALUE),
+                  orderId));
+      assertEquals(reservedStock, stock());
+      assertEquals(prescriptionStock, products.get(3).getStanMagazynowy());
+      assertEquals(1, items.list(orderId).size());
+      assertEquals(1, items.get(lineId, orderId).getIdProduktu());
+      assertEquals(order.getSumaCalkowita(), orders.get(orderId).getSumaCalkowita());
+    } finally {
+      orders.delete(orderId);
     }
   }
 }
