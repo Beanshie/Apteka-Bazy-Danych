@@ -5,14 +5,12 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.Timestamp;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import pk.bd.apteka.dto.*;
 
 class ResourceServicesTest {
@@ -23,25 +21,23 @@ class ResourceServicesTest {
 
   @Test
   void invalidIdDoesNotQueryDatabase() {
-    assertThrows(ResponseStatusException.class, () -> products.get(0));
+    assertThrows(IllegalArgumentException.class, () -> products.get(0));
     verifyNoInteractions(jdbc);
   }
 
   @Test
-  void missingRowReturns404() {
+  void missingRowThrowsHttpIndependentException() {
     when(jdbc.queryForObject(anyString(), anyMap(), any(RowMapper.class)))
         .thenThrow(new EmptyResultDataAccessException(1));
-    assertEquals(
-        404,
-        assertThrows(ResponseStatusException.class, () -> products.get(9)).getStatusCode().value());
+    assertThrows(NoSuchElementException.class, () -> products.get(9));
   }
 
   @Test
   void incompleteReplacementIsRejected() {
     when(jdbc.queryForObject(anyString(), anyMap(), any(RowMapper.class)))
         .thenReturn(new Kategoria());
-    assertThrows(ResponseStatusException.class, () -> categories.update(1, new KategoriaUpdate()));
-    verify(jdbc, never()).update(anyString(), anyMap());
+    assertThrows(IllegalArgumentException.class, () -> categories.update(1, new KategoriaUpdate()));
+    verify(jdbc, never()).update(anyString(), any(SqlParameterSource.class));
   }
 
   @Test
@@ -53,32 +49,16 @@ class ResourceServicesTest {
         .update(
             contains("opis=:opis"),
             argThat(
-                (Map<String, ?> parameters) ->
-                    parameters.containsKey("opis") && parameters.get("opis") == null));
+                (SqlParameterSource parameters) ->
+                    parameters.hasValue("opis") && parameters.getValue("opis") == null));
   }
 
   @Test
   void negativePriceRejected() {
     assertThrows(
-        ResponseStatusException.class,
+        IllegalArgumentException.class,
         () -> products.create(new ProduktCreate(1, 1, "Test", new BigDecimal("-1"))));
     verifyNoInteractions(jdbc);
-  }
-
-  @Test
-  void stockReservationIsConditionalAndRejectsShortage() {
-    when(jdbc.update(anyString(), anyMap())).thenReturn(0);
-    assertEquals(
-        400,
-        assertThrows(
-                ResponseStatusException.class,
-                () -> products.reserve(List.of(new SzczegolZamowienia().idProduktu(1).ilosc(5))))
-            .getStatusCode()
-            .value());
-    verify(jdbc)
-        .update(
-            contains("stan_magazynowy>=:q"),
-            argThat((Map<String, ?> m) -> m.get("q").equals(5) && m.get("p").equals(1)));
   }
 
   private KlientUpdate customer(String password) {
@@ -90,7 +70,9 @@ class ResourceServicesTest {
   }
 
   private void existingCustomer() {
-    when(jdbc.queryForObject(anyString(), anyMap(), any(RowMapper.class))).thenReturn(new Klient());
+    when(jdbc.update(anyString(), any(SqlParameterSource.class))).thenReturn(1);
+    when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), any(RowMapper.class)))
+        .thenReturn(new Klient());
   }
 
   @Test
@@ -101,11 +83,11 @@ class ResourceServicesTest {
         .update(
             contains("haslo=COALESCE(:haslo,haslo)"),
             argThat(
-                (Map<String, ?> p) ->
-                    p.containsKey("haslo")
-                        && p.get("haslo") == null
-                        && p.containsKey("telefon")
-                        && p.get("telefon") == null));
+                (SqlParameterSource p) ->
+                    p.hasValue("haslo")
+                        && p.getValue("haslo") == null
+                        && p.hasValue("telefon")
+                        && p.getValue("telefon") == null));
   }
 
   @Test
@@ -116,17 +98,17 @@ class ResourceServicesTest {
         .update(
             anyString(),
             argThat(
-                (Map<String, ?> p) ->
+                (SqlParameterSource p) ->
                     new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
-                        .matches("new-password", p.get("haslo").toString())));
+                        .matches("new-password", p.getValue("haslo").toString())));
   }
 
   @Test
   void blankPasswordIsRejected() {
     existingCustomer();
     assertThrows(
-        ResponseStatusException.class, () -> new KlientService(jdbc).update(1, customer(" ")));
-    verify(jdbc, never()).update(anyString(), anyMap());
+        IllegalArgumentException.class, () -> new KlientService(jdbc).update(1, customer(" ")));
+    verify(jdbc, never()).update(anyString(), any(SqlParameterSource.class));
   }
 
   @Test
@@ -138,34 +120,6 @@ class ResourceServicesTest {
             contains("AND id_kategorii=:id_kategorii"),
             argThat((Map<String, ?> p) -> p.equals(Map.of("id_kategorii", 2, "id_dostawcy", 3))),
             any(RowMapper.class));
-  }
-
-  @Test
-  void employeeMapperConvertsEnumsAndFlags() throws Exception {
-    var rs = mock(ResultSet.class);
-    when(rs.getString("rola")).thenReturn("KIEROWNIK");
-    when(rs.getBoolean("aktywny")).thenReturn(true);
-    var employee = PracownikService.ROW_MAPPER.mapRow(rs, 0);
-    assertEquals(Pracownik.RolaEnum.KIEROWNIK, employee.getRola());
-    assertTrue(employee.getAktywny());
-    verify(rs, never()).getString("haslo");
-  }
-
-  @Test
-  void itemMapperPreservesMoneyAndNullPrescription() throws Exception {
-    var rs = mock(ResultSet.class);
-    when(rs.getBigDecimal("cena_jednostkowa")).thenReturn(new BigDecimal("12.50"));
-    var item = SzczegolZamowieniaService.ROW_MAPPER.mapRow(rs, 0);
-    assertNull(item.getIdRecepty());
-    assertEquals(new BigDecimal("12.50"), item.getCenaJednostkowa());
-  }
-
-  @Test
-  void customerMapperUsesUtc() throws Exception {
-    var rs = mock(ResultSet.class);
-    when(rs.getTimestamp("data_rejestracji")).thenReturn(Timestamp.valueOf("2026-11-08 12:00:00"));
-    var value = KlientService.ROW_MAPPER.mapRow(rs, 0);
-    assertEquals("2026-11-08T12:00Z", value.getDataRejestracji().toString());
   }
 
   @Test

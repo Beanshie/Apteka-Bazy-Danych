@@ -133,13 +133,11 @@ paths:
           description: Brak autoryzacji.
         '500':
           description: Wewnętrzny błąd serwera.
-        '404':
-          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
         '409':
           description: Konflikt unikalności lub operacja zablokowana przez powiązane
             rekordy.
         '204':
-          description: Usunięto zasób.
+          description: Usunięto zasób lub zasób już nie istnieje.
       description: Usuwa wskazany zasób.
 components:
   schemas:

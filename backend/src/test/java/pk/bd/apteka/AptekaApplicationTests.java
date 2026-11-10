@@ -181,4 +181,110 @@ class AptekaApplicationTests {
         org.springframework.dao.DataIntegrityViolationException.class,
         () -> jdbc.update("DELETE FROM Kategoria WHERE id_kategorii=1"));
   }
+
+  @Autowired KategoriaService categories;
+  @Autowired DostawcaService suppliers;
+  @Autowired PracownikService employees;
+  @Autowired AdresKlientaService addresses;
+  @Autowired ReceptaService prescriptions;
+  @Autowired PlatnoscService payments;
+  @Autowired ProduktService products;
+
+  @Test
+  void simpleResourcesRoundTripAndRepeatedDeletion() {
+    var category =
+        categories.create(new KategoriaCreate().nazwaKategorii("Refactor category").opis("old"));
+    var supplier = suppliers.create(new DostawcaCreate("Refactor supplier"));
+    var employeeRequest = new PracownikCreate("refactor-user", "secret123", "Jan", "Nowak");
+    var employee = employees.create(employeeRequest);
+    try {
+      assertNull(
+          categories
+              .update(
+                  category.getIdKategorii(),
+                  new KategoriaUpdate().nazwaKategorii("Refactor category"))
+              .getOpis());
+      assertEquals("Refactor supplier", suppliers.get(supplier.getIdDostawcy()).getNazwaFirmy());
+      assertNotNull(employee.getRola());
+      assertNotNull(employee.getAktywny());
+      assertEquals("secret123", employeeRequest.getHaslo());
+      String stored =
+          jdbc.queryForObject(
+              "SELECT haslo FROM Pracownik WHERE id_pracownika=?",
+              String.class,
+              employee.getIdPracownika());
+      assertTrue(
+          new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
+              .matches("secret123", stored));
+      employees.update(
+          employee.getIdPracownika(),
+          new PracownikUpdate()
+              .login(employee.getLogin())
+              .imie(employee.getImie())
+              .nazwisko(employee.getNazwisko())
+              .rola(PracownikUpdate.RolaEnum.KIEROWNIK)
+              .aktywny(true)
+              .haslo(null));
+      assertEquals(
+          Pracownik.RolaEnum.KIEROWNIK, employees.get(employee.getIdPracownika()).getRola());
+      assertTrue(employees.get(employee.getIdPracownika()).getAktywny());
+      assertEquals(
+          stored,
+          jdbc.queryForObject(
+              "SELECT haslo FROM Pracownik WHERE id_pracownika=?",
+              String.class,
+              employee.getIdPracownika()));
+      assertFalse(categories.list().isEmpty());
+      assertFalse(suppliers.list().isEmpty());
+      assertFalse(employees.list().isEmpty());
+      assertFalse(products.list(null, null).isEmpty());
+    } finally {
+      categories.delete(category.getIdKategorii());
+      categories.delete(category.getIdKategorii());
+      suppliers.delete(supplier.getIdDostawcy());
+      suppliers.delete(supplier.getIdDostawcy());
+      employees.delete(employee.getIdPracownika());
+      employees.delete(employee.getIdPracownika());
+    }
+    assertThrows(NoSuchElementException.class, () -> categories.get(category.getIdKategorii()));
+  }
+
+  @Test
+  void relatedResourcesMapEnumsTimestampsAndMissingDeletes() {
+    var address = addresses.create(new AdresKlientaCreate(1, "Testowa", "1", "00-001", "Warszawa"));
+    var prescription = prescriptions.create(new ReceptaCreate(1, "ref-rx", "12345678901"));
+    var order = orders.create(request(1, 1));
+    var payment = payments.create(new PlatnoscCreate(order.getIdZamowienia(), "KARTA"));
+    try {
+      assertEquals(1, addresses.get(address.getIdAdresu()).getIdKlienta());
+      assertNotNull(prescription.getStatusRecepty());
+      assertEquals(java.time.ZoneOffset.UTC, order.getDataZamowienia().getOffset());
+      assertNull(order.getPozycje().getFirst().getIdRecepty());
+      assertEquals(
+          0,
+          new java.math.BigDecimal("12.50")
+              .compareTo(order.getPozycje().getFirst().getCenaJednostkowa()));
+      assertNotNull(payment.getStatusPlatnosci());
+      assertFalse(payments.list(order.getIdZamowienia()).isEmpty());
+      assertFalse(prescriptions.list(1, null, null).isEmpty());
+      assertFalse(addresses.list(1).isEmpty());
+      int stock = stock();
+      var total = orders.get(order.getIdZamowienia()).getSumaCalkowita();
+      items.delete(Integer.MAX_VALUE, order.getIdZamowienia());
+      assertEquals(stock, stock());
+      assertEquals(total, orders.get(order.getIdZamowienia()).getSumaCalkowita());
+      assertThrows(NoSuchElementException.class, () -> items.delete(1, Integer.MAX_VALUE));
+    } finally {
+      payments.delete(payment.getIdPlatnosci());
+      payments.delete(payment.getIdPlatnosci());
+      orders.delete(order.getIdZamowienia());
+      int released = stock();
+      orders.delete(order.getIdZamowienia());
+      assertEquals(released, stock());
+      addresses.delete(address.getIdAdresu());
+      addresses.delete(address.getIdAdresu());
+      prescriptions.delete(prescription.getIdRecepty());
+      prescriptions.delete(prescription.getIdRecepty());
+    }
+  }
 }

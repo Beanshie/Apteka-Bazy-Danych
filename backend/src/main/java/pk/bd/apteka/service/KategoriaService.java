@@ -1,143 +1,106 @@
 package pk.bd.apteka.service;
 
 import java.util.*;
+
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import pk.bd.apteka.dto.*;
 
 @Service
 public class KategoriaService {
-  private final NamedParameterJdbcTemplate jdbc;
 
-  public KategoriaService(NamedParameterJdbcTemplate jdbc) {
-    this.jdbc = jdbc;
-  }
+    private final NamedParameterJdbcTemplate jdbc;
 
-  static final RowMapper<Kategoria> ROW_MAPPER =
-      (rs, index) -> {
-        var value = new Kategoria();
-        value.setIdKategorii(rs.getObject("id_kategorii", Integer.class));
-        value.setNazwaKategorii(rs.getString("nazwa_kategorii"));
-        value.setOpis(rs.getString("opis"));
-        return value;
-      };
-
-  Kategoria read(Integer id, boolean lock) {
-    if (id == null || id < 1)
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Niepoprawne ID");
-    try {
-      return jdbc.queryForObject(
-          "SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE id_kategorii=:id"
-              + (lock ? " FOR UPDATE" : ""),
-          params("id", id),
-          ROW_MAPPER);
-    } catch (EmptyResultDataAccessException error) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono rekordu");
+    public KategoriaService(NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
     }
-  }
 
-  public Kategoria get(Integer id) {
-    return read(id, false);
-  }
+    public Kategoria get(Integer id) {
+        Kategoria record;
+        if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
+        try {
+            record =
+                    jdbc.queryForObject(
+                            "SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE id_kategorii=:id",
+                            new MapSqlParameterSource().addValue("id", id).getValues(),
+                            new BeanPropertyRowMapper<>(Kategoria.class));
+        } catch (EmptyResultDataAccessException errorItem) {
+            throw new NoSuchElementException("Nie znaleziono rekordu");
+        }
+        return record;
+    }
 
-  public List<Kategoria> list() {
-    StringBuilder sql =
-        new StringBuilder("SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE 1=1");
-    Map<String, Object> parameters = new LinkedHashMap<>();
-    sql.append(" ORDER BY id_kategorii");
-    var result = jdbc.query(sql.toString(), parameters, ROW_MAPPER);
-    return result;
-  }
+    public List<Kategoria> list() {
+        StringBuilder sql =
+                new StringBuilder("SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE 1=1");
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        sql.append(" ORDER BY id_kategorii");
+        var result =
+                jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Kategoria.class));
+        return result;
+    }
 
-  private void validate(KategoriaCreate value) {
-    if (value == null)
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
-    if (value.getNazwaKategorii() == null)
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwa_kategorii");
-    if (value.getNazwaKategorii() != null) checkText(value.getNazwaKategorii(), 50, true);
-    if (value.getOpis() != null) checkText(value.getOpis(), 0, false);
-  }
+    @Transactional
+    public Kategoria create(KategoriaCreate value) {
+        if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
+        if (value.getNazwaKategorii() == null)
+            throw new IllegalArgumentException("Pole nie może być null: nazwa_kategorii");
+        if (value.getNazwaKategorii() != null) {
+            if (value.getNazwaKategorii().isBlank()) throw new IllegalArgumentException("Puste pole");
+            if (value.getNazwaKategorii().length() > 50)
+                throw new IllegalArgumentException("Zbyt długie pole");
+        }
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("nazwa_kategorii", value.getNazwaKategorii());
+        parameters.put("opis", value.getOpis());
+        var key = new GeneratedKeyHolder();
+        jdbc.update(
+                "INSERT INTO Kategoria (nazwa_kategorii,opis) VALUES (:nazwa_kategorii,:opis)",
+                new MapSqlParameterSource(parameters),
+                key,
+                new String[]{"id_kategorii"});
+        int id = Objects.requireNonNull(key.getKey()).intValue();
+        return get(id);
+    }
 
-  private Map<String, Object> parameters(KategoriaCreate value) {
-    validate(value);
-    Map<String, Object> result = new LinkedHashMap<>();
-    result.put("nazwa_kategorii", value.getNazwaKategorii());
-    result.put("opis", value.getOpis());
-    return result;
-  }
+    @Transactional
+    public Kategoria update(Integer id, KategoriaUpdate value) {
+        if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
+        try {
+            jdbc.queryForObject(
+                    "SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE id_kategorii=:id"
+                            + " FOR UPDATE",
+                    new MapSqlParameterSource().addValue("id", id).getValues(),
+                    new BeanPropertyRowMapper<>(Kategoria.class));
+        } catch (EmptyResultDataAccessException errorItem) {
+            throw new NoSuchElementException("Nie znaleziono rekordu");
+        }
+        if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
+        if (value.getNazwaKategorii() == null)
+            throw new IllegalArgumentException("Pole nie może być null: nazwa_kategorii");
+        if (value.getNazwaKategorii() != null) {
+            if (value.getNazwaKategorii().isBlank()) throw new IllegalArgumentException("Puste pole");
+            if (value.getNazwaKategorii().length() > 50)
+                throw new IllegalArgumentException("Zbyt długie pole");
+        }
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("nazwa_kategorii", value.getNazwaKategorii());
+        parameters.put("opis", value.getOpis());
+        parameters.put("_id", id);
+        jdbc.update(
+                "UPDATE Kategoria SET nazwa_kategorii=:nazwa_kategorii,opis=:opis WHERE id_kategorii=:_id",
+                new MapSqlParameterSource(parameters));
+        return get(id);
+    }
 
-  private void validate(KategoriaUpdate value) {
-    if (value == null)
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pole nie może być null: body");
-    if (value.getNazwaKategorii() == null)
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST, "Pole nie może być null: nazwa_kategorii");
-    if (value.getNazwaKategorii() != null) checkText(value.getNazwaKategorii(), 50, true);
-    if (value.getOpis() != null) checkText(value.getOpis(), 0, false);
-  }
-
-  private Map<String, Object> parameters(KategoriaUpdate value) {
-    validate(value);
-    Map<String, Object> result = new LinkedHashMap<>();
-    result.put("nazwa_kategorii", value.getNazwaKategorii());
-    result.put("opis", value.getOpis());
-    return result;
-  }
-
-  private int insert(Map<String, Object> data) {
-    var key = new GeneratedKeyHolder();
-    jdbc.update(
-        "INSERT INTO Kategoria (nazwa_kategorii,opis) VALUES (:nazwa_kategorii,:opis)",
-        new MapSqlParameterSource(data),
-        key,
-        new String[] {"id_kategorii"});
-    return Objects.requireNonNull(key.getKey()).intValue();
-  }
-
-  private void write(int id, Map<String, Object> data) {
-    Map<String, Object> parameters = new LinkedHashMap<>(data);
-    parameters.put("_id", id);
-    jdbc.update(
-        "UPDATE Kategoria SET nazwa_kategorii=:nazwa_kategorii,opis=:opis WHERE id_kategorii=:_id",
-        parameters);
-  }
-
-  @Transactional
-  public Kategoria create(KategoriaCreate value) {
-    int id = insert(parameters(value));
-    return get(id);
-  }
-
-  @Transactional
-  public Kategoria update(Integer id, KategoriaUpdate value) {
-    read(id, true);
-    write(id, parameters(value));
-    return get(id);
-  }
-
-  @Transactional
-  public void delete(Integer id) {
-    read(id, true);
-    jdbc.update("DELETE FROM Kategoria WHERE id_kategorii=:id", params("id", id));
-  }
-
-  private static Map<String, Object> params(Object... pairs) {
-    Map<String, Object> m = new LinkedHashMap<>();
-    for (int i = 0; i < pairs.length; i += 2) m.put((String) pairs[i], pairs[i + 1]);
-    return m;
-  }
-
-  private static void checkText(String text, int max, boolean required) {
-    if (required && text.isBlank())
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Puste pole");
-    if (max > 0 && text.length() > max)
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbyt długie pole");
-  }
+    @Transactional
+    public void delete(Integer id) {
+        if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
+        jdbc.update(
+                "DELETE FROM Kategoria WHERE id_kategorii=:id", new MapSqlParameterSource("id", id));
+    }
 }

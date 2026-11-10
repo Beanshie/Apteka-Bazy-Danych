@@ -84,6 +84,19 @@ class ControllerErrorHandlingTest {
   }
 
   @Test
+  void allOtherEndpointsMapMissingRecordsTo404() throws Exception {
+    for (String resource : RESOURCES) {
+      if (resource.equals("Klient")) continue;
+      Object controller = controller(resource, new java.util.NoSuchElementException("missing"));
+      for (Method method : endpoints(controller)) {
+        var response = (ResponseEntity<?>) method.invoke(controller, arguments(method));
+        assertEquals(404, response.getStatusCode().value(), resource + "." + method.getName());
+        assertNull(response.getBody());
+      }
+    }
+  }
+
+  @Test
   void explicitServiceHttpStatusesRemainForSpringToHandle() throws Exception {
     for (HttpStatus status : new HttpStatus[] {HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND}) {
       var error = new ResponseStatusException(status, "Resource validation");

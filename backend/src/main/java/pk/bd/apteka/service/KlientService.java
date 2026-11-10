@@ -1,13 +1,10 @@
 package pk.bd.apteka.service;
 
 import java.nio.charset.StandardCharsets;
-import java.time.ZoneOffset;
 import java.util.*;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.*;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -46,9 +43,9 @@ public class KlientService {
                 new BCryptPasswordEncoder().encode(value.getHaslo());
 
         String sql = """
-        INSERT INTO Klient (imie, nazwisko, email, haslo, telefon)
-        VALUES (:imie, :nazwisko, :email, :haslo, :telefon)
-        """;
+                INSERT INTO Klient (imie, nazwisko, email, haslo, telefon)
+                VALUES (:imie, :nazwisko, :email, :haslo, :telefon)
+                """;
 
         SqlParameterSource parameters = new MapSqlParameterSource()
                 .addValue("imie", value.getImie())

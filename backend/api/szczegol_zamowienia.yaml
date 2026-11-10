@@ -155,7 +155,7 @@ paths:
           description: Konflikt unikalności lub operacja zablokowana przez powiązane
             rekordy.
         '204':
-          description: Usunięto zasób.
+          description: Usunięto zasób lub zasób już nie istnieje.
       description: Usuwa wskazany zasób.
 components:
   schemas:

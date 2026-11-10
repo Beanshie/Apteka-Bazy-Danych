@@ -40,17 +40,17 @@ These are breaking contract changes. Frontend clients need adaptation to the new
 
 Each controller endpoint handles invalid arguments (400), integrity conflicts
 (409), and other database failures (500) with local try/catch blocks. Database
-errors are logged without exposing their details in responses. Spring handles
-request validation, malformed JSON, and service HTTP status exceptions.
+errors are logged without exposing their details in responses. Missing records and
+references return 404 through controller-local handling of NoSuchElementException. Spring handles request validation and malformed JSON.
+Deleting an absent target returns 204; nested operations still require an existing parent order.
 
-Each resource has a JDBC service containing its own SQL, validation, and typed
-DTO mapping, plus a controller implementing its generated interface. There is no
-shared CRUD store or runtime table/column registry. Order coordination belongs to
-`ZamowienieService`, item CRUD to `SzczegolZamowieniaService`, and stock changes to
-`ProduktService`. Product locking SQL is inline in both order coordination and stock
-release. One-line validation and exception helpers are inline at their call sites;
-longer helpers remain private to each service. Updates replace the full writable
-object; nullable fields may be cleared.
+Each resource has a JDBC service with only its API operations: create, get, list,
+update, and delete. SQL, validation, parameter binding, and business rules are inline
+in those operations. Ordinary reads reuse get(); there are no CRUD or business
+helper methods. Services throw HTTP-independent exceptions. Controllers own HTTP
+responses. Order and item mutations each contain the required stock coordination,
+locking, ownership checks, snapshots, and total calculations.
+Updates replace the full writable object; nullable fields may be cleared.
 Null or omitted passwords preserve the existing hash. Account passwords are hashed with BCrypt and never included in responses.
 MariaDB sessions and API timestamp conversions use UTC.
 
@@ -65,7 +65,8 @@ parallel order throughput. Authentication and payment-provider integration are n
 Run `mvn test` for service/controller tests. MariaDB integration tests run in an
 isolated Testcontainers database using Flyway; they are skipped if Docker is unavailable.
 
-Service methods use typed filter arguments and resource-specific JDBC row mappers.
+Service methods use typed filter arguments and BeanPropertyRowMapper DTO mapping,
+with inline row mapping for order and payment timestamps to preserve UTC.
 Only order-item methods take an `idZamowienia` parent identifier. INSERT and UPDATE
 statements list their columns explicitly; creation defaults are supplied by each
 service. Validation operates directly on DTOs; maps are used only for SQL parameters.

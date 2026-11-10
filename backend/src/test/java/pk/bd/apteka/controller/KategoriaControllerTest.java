@@ -12,7 +12,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.server.ResponseStatusException;
 import pk.bd.apteka.dto.*;
 import pk.bd.apteka.service.*;
 
@@ -63,7 +62,7 @@ class KategoriaControllerTest {
 
   @Test
   void missingResourceReturns404() throws Exception {
-    when(service.get(1)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+    when(service.get(1)).thenThrow(new java.util.NoSuchElementException("missing"));
     mvc.perform(get("/kategorie/1")).andExpect(status().isNotFound());
   }
 
