@@ -64,7 +64,7 @@ public class SzczegolZamowieniaService {
       order =
           jdbc.queryForObject(
               "SELECT id_klienta,id_adresu,status_zamowienia"
-                  + " FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
+                  + " FROM Zamowienie WHERE id_zamowienia=:id",
               new MapSqlParameterSource("id", idZamowienia),
               new BeanPropertyRowMapper<>(Zamowienie.class));
     } catch (EmptyResultDataAccessException error) {
@@ -87,15 +87,11 @@ public class SzczegolZamowieniaService {
       }
     }
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    if (value.getIdProduktu() == null || value.getIdProduktu() < 1)
-      throw new IllegalArgumentException("Niepoprawne ID produktu");
     var selectedProduct = produkt.get(value.getIdProduktu());
     if (value.getIdRecepty() != null) {
       if (value.getIdRecepty() < 1) throw new IllegalArgumentException("Niepoprawne ID recepty");
       recepta.get(value.getIdRecepty());
     }
-    if (value.getIlosc() != null && value.getIlosc() < 1)
-      throw new IllegalArgumentException("Niepoprawna ilość");
     var key = new GeneratedKeyHolder();
     jdbc.update(
         "INSERT INTO Szczegol_Zamowienia"

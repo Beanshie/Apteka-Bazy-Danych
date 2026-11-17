@@ -58,10 +58,10 @@ public class PlatnoscService {
         StringBuilder sql =
                 new StringBuilder(
                         "SELECT id_platnosci,id_zamowienia,metoda_platnosci,status_platnosci,data_platnosci"
-                                + " FROM Platnosc WHERE 1=1");
+                                + " FROM Platnosc");
         Map<String, Object> parameters = new LinkedHashMap<>();
         if (idZamowienia != null) {
-            sql.append(" AND id_zamowienia=:id_zamowienia");
+            sql.append(" WHERE id_zamowienia=:id_zamowienia");
             parameters.put("id_zamowienia", idZamowienia);
         }
         sql.append(" ORDER BY id_platnosci");
@@ -90,22 +90,8 @@ public class PlatnoscService {
     @Transactional
     public Platnosc create(PlatnoscCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getIdZamowienia() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_zamowienia");
-        if (value.getIdZamowienia() != null) {
-            BigDecimal d = new BigDecimal(value.getIdZamowienia().toString());
-            if (d.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdZamowienia() != null) zamowienie.get(value.getIdZamowienia());
-        if (value.getMetodaPlatnosci() == null)
-            throw new IllegalArgumentException("Pole nie może być null: metoda_platnosci");
-        if (value.getMetodaPlatnosci() != null) {
-            if (value.getMetodaPlatnosci().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getMetodaPlatnosci().length() > 30)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        Map<String, Object> parameters = new LinkedHashMap<>();
+       zamowienie.get(value.getIdZamowienia());
+       Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_zamowienia", value.getIdZamowienia());
         parameters.put("metoda_platnosci", value.getMetodaPlatnosci());
         parameters.put(
@@ -158,29 +144,13 @@ public class PlatnoscService {
             throw new NoSuchElementException("Nie znaleziono rekordu");
         }
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getIdZamowienia() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_zamowienia");
-        if (value.getIdZamowienia() != null) {
-            BigDecimal d = new BigDecimal(value.getIdZamowienia().toString());
-            if (d.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdZamowienia() != null) zamowienie.get(value.getIdZamowienia());
-        if (value.getMetodaPlatnosci() == null)
-            throw new IllegalArgumentException("Pole nie może być null: metoda_platnosci");
-        if (value.getMetodaPlatnosci() != null) {
-            if (value.getMetodaPlatnosci().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getMetodaPlatnosci().length() > 30)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getStatusPlatnosci() == null)
-            throw new IllegalArgumentException("Pole nie może być null: status_platnosci");
+        zamowienie.get(value.getIdZamowienia());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_zamowienia", value.getIdZamowienia());
         parameters.put("metoda_platnosci", value.getMetodaPlatnosci());
         parameters.put(
                 "status_platnosci",
-                value.getStatusPlatnosci() == null ? null : value.getStatusPlatnosci().getValue());
+                value.getStatusPlatnosci().getValue());
         parameters.put(
                 "data_platnosci",
                 value.getDataPlatnosci() == null

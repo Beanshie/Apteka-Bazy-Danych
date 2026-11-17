@@ -38,48 +38,18 @@ public class PracownikService {
     }
 
     public List<Pracownik> list() {
-        StringBuilder sql =
-                new StringBuilder(
-                        "SELECT id_pracownika,login,imie,nazwisko,rola,aktywny FROM Pracownik WHERE 1=1");
         Map<String, Object> parameters = new LinkedHashMap<>();
-        sql.append(" ORDER BY id_pracownika");
-        var result =
-                jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Pracownik.class));
-        return result;
+        return jdbc.query("SELECT id_pracownika,login,imie,nazwisko,rola,aktywny FROM Pracownik"
+                + " ORDER BY id_pracownika", parameters, new BeanPropertyRowMapper<>(Pracownik.class));
     }
 
     @Transactional
     public Pracownik create(PracownikCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getLogin() == null)
-            throw new IllegalArgumentException("Pole nie może być null: login");
-        if (value.getLogin() != null) {
-            if (value.getLogin().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getLogin().length() > 50) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getHaslo() == null)
-            throw new IllegalArgumentException("Pole nie może być null: haslo");
-        if (value.getHaslo() != null) {
-            if (value.getHaslo().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getHaslo().length() > 255) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getImie() == null) throw new IllegalArgumentException("Pole nie może być null: imie");
-        if (value.getImie() != null) {
-            if (value.getImie().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getImie().length() > 50) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getNazwisko() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwisko");
-        if (value.getNazwisko() != null) {
-            if (value.getNazwisko().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwisko().length() > 50) throw new IllegalArgumentException("Zbyt długie pole");
-        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("login", value.getLogin());
-        if (value.getHaslo().getBytes(StandardCharsets.UTF_8).length > 72)
-            throw new IllegalArgumentException("Hasło przekracza 72 bajty");
         String passwordHash = new BCryptPasswordEncoder().encode(value.getHaslo());
-        parameters.put("haslo", value.getHaslo() == null ? null : passwordHash);
+        parameters.put("haslo", passwordHash);
         parameters.put("imie", value.getImie());
         parameters.put("nazwisko", value.getNazwisko());
         parameters.put("rola", value.getRola() == null ? "FARMACEUTA" : (value.getRola().getValue()));
@@ -101,50 +71,21 @@ public class PracownikService {
         try {
             jdbc.queryForObject(
                     "SELECT id_pracownika,login,imie,nazwisko,rola,aktywny FROM Pracownik WHERE"
-                            + " id_pracownika=:id"
-                            + " FOR UPDATE",
+                            + " id_pracownika=:id",
                     new MapSqlParameterSource().addValue("id", id).getValues(),
                     new BeanPropertyRowMapper<>(Pracownik.class));
         } catch (EmptyResultDataAccessException errorItem) {
             throw new NoSuchElementException("Nie znaleziono rekordu");
         }
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getLogin() == null)
-            throw new IllegalArgumentException("Pole nie może być null: login");
-        if (value.getLogin() != null) {
-            if (value.getLogin().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getLogin().length() > 50) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getHaslo() != null) {
-            if (value.getHaslo().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getHaslo().length() > 255) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getImie() == null) throw new IllegalArgumentException("Pole nie może być null: imie");
-        if (value.getImie() != null) {
-            if (value.getImie().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getImie().length() > 50) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getNazwisko() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwisko");
-        if (value.getNazwisko() != null) {
-            if (value.getNazwisko().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwisko().length() > 50) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getRola() == null) throw new IllegalArgumentException("Pole nie może być null: rola");
-        if (value.getAktywny() == null)
-            throw new IllegalArgumentException("Pole nie może być null: aktywny");
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("login", value.getLogin());
         String passwordHash = null;
-        if (value.getHaslo() != null) {
-            if (value.getHaslo().getBytes(StandardCharsets.UTF_8).length > 72)
-                throw new IllegalArgumentException("Hasło przekracza 72 bajty");
-            passwordHash = new BCryptPasswordEncoder().encode(value.getHaslo());
-        }
+        passwordHash = new BCryptPasswordEncoder().encode(value.getHaslo());
         parameters.put("haslo", passwordHash);
         parameters.put("imie", value.getImie());
         parameters.put("nazwisko", value.getNazwisko());
-        parameters.put("rola", value.getRola() == null ? null : value.getRola().getValue());
+        parameters.put("rola", value.getRola().getValue());
         parameters.put("aktywny", value.getAktywny());
         parameters.put("_id", id);
         jdbc.update(

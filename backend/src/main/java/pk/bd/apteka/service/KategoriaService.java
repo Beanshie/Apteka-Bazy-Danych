@@ -36,24 +36,15 @@ public class KategoriaService {
 
     public List<Kategoria> list() {
         StringBuilder sql =
-                new StringBuilder("SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE 1=1");
+                new StringBuilder("SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria");
         Map<String, Object> parameters = new LinkedHashMap<>();
         sql.append(" ORDER BY id_kategorii");
-        var result =
-                jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Kategoria.class));
-        return result;
+        return jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Kategoria.class));
     }
 
     @Transactional
     public Kategoria create(KategoriaCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getNazwaKategorii() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwa_kategorii");
-        if (value.getNazwaKategorii() != null) {
-            if (value.getNazwaKategorii().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwaKategorii().length() > 50)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("nazwa_kategorii", value.getNazwaKategorii());
         parameters.put("opis", value.getOpis());
@@ -78,14 +69,6 @@ public class KategoriaService {
                     new BeanPropertyRowMapper<>(Kategoria.class));
         } catch (EmptyResultDataAccessException errorItem) {
             throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
-        if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getNazwaKategorii() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwa_kategorii");
-        if (value.getNazwaKategorii() != null) {
-            if (value.getNazwaKategorii().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwaKategorii().length() > 50)
-                throw new IllegalArgumentException("Zbyt długie pole");
         }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("nazwa_kategorii", value.getNazwaKategorii());

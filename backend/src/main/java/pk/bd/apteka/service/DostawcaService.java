@@ -36,35 +36,13 @@ public class DostawcaService {
     }
 
     public List<Dostawca> list() {
-        StringBuilder sql =
-                new StringBuilder(
-                        "SELECT id_dostawcy,nazwa_firmy,nip,telefon,email FROM Dostawca WHERE 1=1");
-        Map<String, Object> parameters = new LinkedHashMap<>();
-        sql.append(" ORDER BY id_dostawcy");
-        var result =
-                jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Dostawca.class));
-        return result;
+        final var sql = "SELECT id_dostawcy,nazwa_firmy,nip,telefon,email FROM Dostawca WHERE 1=1 ORDER BY id_dostawcy";
+        return jdbc.query(sql, new BeanPropertyRowMapper<>(Dostawca.class));
     }
 
     @Transactional
     public Dostawca create(DostawcaCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getNazwaFirmy() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwa_firmy");
-        if (value.getNazwaFirmy() != null) {
-            if (value.getNazwaFirmy().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwaFirmy().length() > 100)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getNip() != null) {
-            if (value.getNip().length() > 15) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getTelefon() != null) {
-            if (value.getTelefon().length() > 20) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getEmail() != null) {
-            if (value.getEmail().length() > 100) throw new IllegalArgumentException("Zbyt długie pole");
-        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("nazwa_firmy", value.getNazwaFirmy());
         parameters.put("nip", value.getNip());
@@ -77,8 +55,7 @@ public class DostawcaService {
                 new MapSqlParameterSource(parameters),
                 key,
                 new String[]{"id_dostawcy"});
-        int generatedId = Objects.requireNonNull(key.getKey()).intValue();
-        int id = generatedId;
+        int id = Objects.requireNonNull(key.getKey()).intValue();
         return get(id);
     }
 
@@ -87,29 +64,11 @@ public class DostawcaService {
         if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
         try {
             jdbc.queryForObject(
-                    "SELECT id_dostawcy,nazwa_firmy,nip,telefon,email FROM Dostawca WHERE id_dostawcy=:id"
-                            + " FOR UPDATE",
+                    "SELECT id_dostawcy,nazwa_firmy,nip,telefon,email FROM Dostawca WHERE id_dostawcy=:id",
                     new MapSqlParameterSource().addValue("id", id).getValues(),
                     new BeanPropertyRowMapper<>(Dostawca.class));
         } catch (EmptyResultDataAccessException errorItem) {
             throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
-        if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getNazwaFirmy() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwa_firmy");
-        if (value.getNazwaFirmy() != null) {
-            if (value.getNazwaFirmy().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwaFirmy().length() > 100)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getNip() != null) {
-            if (value.getNip().length() > 15) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getTelefon() != null) {
-            if (value.getTelefon().length() > 20) throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getEmail() != null) {
-            if (value.getEmail().length() > 100) throw new IllegalArgumentException("Zbyt długie pole");
         }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("nazwa_firmy", value.getNazwaFirmy());

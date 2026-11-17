@@ -58,35 +58,13 @@ public class ReceptaService {
             parameters.put("status_recepty", statusRecepty);
         }
         sql.append(" ORDER BY id_recepty");
-        var result = jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Recepta.class));
-        return result;
+        return jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Recepta.class));
     }
 
     @Transactional
     public Recepta create(ReceptaCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getIdKlienta() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_klienta");
-        if (value.getIdKlienta() != null) {
-            BigDecimal d = new BigDecimal(value.getIdKlienta().toString());
-            if (d.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdKlienta() != null) klient.get(value.getIdKlienta());
-        if (value.getKodRecepty() == null)
-            throw new IllegalArgumentException("Pole nie może być null: kod_recepty");
-        if (value.getKodRecepty() != null) {
-            if (value.getKodRecepty().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getKodRecepty().length() > 10)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getPeselPacjenta() == null)
-            throw new IllegalArgumentException("Pole nie może być null: pesel_pacjenta");
-        if (value.getPeselPacjenta() != null) {
-            if (value.getPeselPacjenta().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getPeselPacjenta().length() > 11)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
+        klient.get(value.getIdKlienta());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_klienta", value.getIdKlienta());
         parameters.put("kod_recepty", value.getKodRecepty());
@@ -119,50 +97,20 @@ public class ReceptaService {
             throw new NoSuchElementException("Nie znaleziono rekordu");
         }
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getIdKlienta() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_klienta");
-        if (value.getIdKlienta() != null) {
-            BigDecimal d = new BigDecimal(value.getIdKlienta().toString());
-            if (d.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdKlienta() != null) klient.get(value.getIdKlienta());
-        if (value.getKodRecepty() == null)
-            throw new IllegalArgumentException("Pole nie może być null: kod_recepty");
-        if (value.getKodRecepty() != null) {
-            if (value.getKodRecepty().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getKodRecepty().length() > 10)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getPeselPacjenta() == null)
-            throw new IllegalArgumentException("Pole nie może być null: pesel_pacjenta");
-        if (value.getPeselPacjenta() != null) {
-            if (value.getPeselPacjenta().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getPeselPacjenta().length() > 11)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getStatusRecepty() == null)
-            throw new IllegalArgumentException("Pole nie może być null: status_recepty");
+        klient.get(value.getIdKlienta());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_klienta", value.getIdKlienta());
         parameters.put("kod_recepty", value.getKodRecepty());
         parameters.put("pesel_pacjenta", value.getPeselPacjenta());
         parameters.put(
                 "status_recepty",
-                value.getStatusRecepty() == null ? null : value.getStatusRecepty().getValue());
+                value.getStatusRecepty().getValue());
         parameters.put("_id", id);
         jdbc.update(
                 "UPDATE Recepta SET"
-                        + " id_klienta=:id_klienta,kod_recepty=:kod_recepty,pesel_pacjenta=:pesel_pacjenta,status_recepty=:status_recepty"
-                        + " WHERE id_recepty=:_id",
+                        + " kod_recepty=:kod_recepty,pesel_pacjenta=:pesel_pacjenta,status_recepty=:status_recepty"
+                        + " WHERE id_recepty=:_id AND id_klienta=:id_klienta",
                 new MapSqlParameterSource(parameters));
-        if (jdbc.queryForObject(
-                "SELECT COUNT(*) FROM Szczegol_Zamowienia s JOIN Zamowienie z ON"
-                        + " z.id_zamowienia=s.id_zamowienia JOIN Recepta r ON r.id_recepty=s.id_recepty"
-                        + " WHERE r.id_recepty=:id AND r.id_klienta<>z.id_klienta",
-                new MapSqlParameterSource().addValue("id", id).getValues(),
-                Integer.class)
-                > 0) throw new IllegalArgumentException("Recepta należy do innego klienta");
         return get(id);
     }
 

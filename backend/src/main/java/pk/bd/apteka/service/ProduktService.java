@@ -60,49 +60,14 @@ public class ProduktService {
             parameters.put("id_dostawcy", idDostawcy);
         }
         sql.append(" ORDER BY id_produktu");
-        var result = jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Produkt.class));
-        return result;
+        return jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Produkt.class));
     }
 
     @Transactional
     public Produkt create(ProduktCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getIdKategorii() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_kategorii");
-        if (value.getIdKategorii() != null) {
-            BigDecimal d = new BigDecimal(value.getIdKategorii().toString());
-            if (d.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdKategorii() != null) kategoria.get(value.getIdKategorii());
-        if (value.getIdDostawcy() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_dostawcy");
-        if (value.getIdDostawcy() != null) {
-            BigDecimal d2 = new BigDecimal(value.getIdDostawcy().toString());
-            if (d2.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdDostawcy() != null) dostawca.get(value.getIdDostawcy());
-        if (value.getNazwaProduktu() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwa_produktu");
-        if (value.getNazwaProduktu() != null) {
-            if (value.getNazwaProduktu().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwaProduktu().length() > 100)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getCena() == null) throw new IllegalArgumentException("Pole nie może być null: cena");
-        if (value.getCena() != null) {
-            BigDecimal d3 = new BigDecimal(value.getCena().toString());
-            if (d3.compareTo(BigDecimal.valueOf(0)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-            if ((d3.stripTrailingZeros().scale() > 2 || d3.compareTo(new BigDecimal("99999999.99")) > 0))
-                throw new IllegalArgumentException("Niepoprawna cena");
-        }
-        if (value.getStanMagazynowy() != null) {
-            BigDecimal d4 = new BigDecimal(value.getStanMagazynowy().toString());
-            if (d4.compareTo(BigDecimal.valueOf(0)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
+      kategoria.get(value.getIdKategorii());
+        dostawca.get(value.getIdDostawcy());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_kategorii", value.getIdKategorii());
         parameters.put("id_dostawcy", value.getIdDostawcy());
@@ -139,46 +104,8 @@ public class ProduktService {
             throw new NoSuchElementException("Nie znaleziono rekordu");
         }
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        if (value.getIdKategorii() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_kategorii");
-        if (value.getIdKategorii() != null) {
-            BigDecimal d = new BigDecimal(value.getIdKategorii().toString());
-            if (d.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdKategorii() != null) kategoria.get(value.getIdKategorii());
-        if (value.getIdDostawcy() == null)
-            throw new IllegalArgumentException("Pole nie może być null: id_dostawcy");
-        if (value.getIdDostawcy() != null) {
-            BigDecimal d2 = new BigDecimal(value.getIdDostawcy().toString());
-            if (d2.compareTo(BigDecimal.valueOf(1)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getIdDostawcy() != null) dostawca.get(value.getIdDostawcy());
-        if (value.getNazwaProduktu() == null)
-            throw new IllegalArgumentException("Pole nie może być null: nazwa_produktu");
-        if (value.getNazwaProduktu() != null) {
-            if (value.getNazwaProduktu().isBlank()) throw new IllegalArgumentException("Puste pole");
-            if (value.getNazwaProduktu().length() > 100)
-                throw new IllegalArgumentException("Zbyt długie pole");
-        }
-        if (value.getCena() == null) throw new IllegalArgumentException("Pole nie może być null: cena");
-        if (value.getCena() != null) {
-            BigDecimal d3 = new BigDecimal(value.getCena().toString());
-            if (d3.compareTo(BigDecimal.valueOf(0)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-            if ((d3.stripTrailingZeros().scale() > 2 || d3.compareTo(new BigDecimal("99999999.99")) > 0))
-                throw new IllegalArgumentException("Niepoprawna cena");
-        }
-        if (value.getStanMagazynowy() == null)
-            throw new IllegalArgumentException("Pole nie może być null: stan_magazynowy");
-        if (value.getStanMagazynowy() != null) {
-            BigDecimal d4 = new BigDecimal(value.getStanMagazynowy().toString());
-            if (d4.compareTo(BigDecimal.valueOf(0)) < 0)
-                throw new IllegalArgumentException("Niepoprawna liczba");
-        }
-        if (value.getWymagaRecepty() == null)
-            throw new IllegalArgumentException("Pole nie może być null: wymaga_recepty");
+        kategoria.get(value.getIdKategorii());
+        dostawca.get(value.getIdDostawcy());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_kategorii", value.getIdKategorii());
         parameters.put("id_dostawcy", value.getIdDostawcy());
