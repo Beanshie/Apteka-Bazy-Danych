@@ -7,12 +7,18 @@ export interface Klient {
   data_rejestracji: string;
 }
 
-export type KlientCreate = Omit<Klient, 'id_klienta' | 'telefon' | 'data_rejestracji'> &
-  Partial<Pick<Klient, 'telefon'>> & {
-    haslo: string;
-  };
+export interface KlientCreate {
+  imie: string;
+  nazwisko: string;
+  email: string;
+  haslo: string;
+  telefon?: string | null;
+}
 
-export type KlientUpdate = Omit<Klient, 'id_klienta' | 'telefon' | 'data_rejestracji'> &
-  Partial<Pick<Klient, 'telefon'>> & {
-    haslo?: string | null;
-  };
+export interface KlientUpdate {
+  imie: string;
+  nazwisko: string;
+  email: string;
+  haslo?: string | null;
+  telefon?: string | null;
+}
