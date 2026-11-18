@@ -25,6 +25,12 @@ export const Layout = () => {
           <div className="flex items-center gap-3">
             {isAuthenticated && user ? (
               <div className="flex items-center gap-3">
+                <Link
+                  to="/zamowienia"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
+                >
+                  Moje zamówienia
+                </Link>
                 <div className="hidden sm:block text-right">
                   <p className="text-sm font-semibold text-slate-900 leading-tight">
                     {user.imie} {user.nazwisko}
