@@ -1,189 +1,181 @@
--- 1. METODY DOSTAWY
-CREATE TABLE Metoda_Dostawy (
-    metoda_dostawy_ID INT AUTO_INCREMENT PRIMARY KEY,
-    nazwa             VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE,
-    cena              DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    aktywna           TINYINT NOT NULL DEFAULT 1,
-    CONSTRAINT chk_metoda_dostawy_cena CHECK (cena >= 0)
-);
+-- ============================================================================
+-- PROJEKT RELACYJNEJ BAZY DANYCH: APTEKA INTERNETOWA (10 TABEL)
+-- Silnik: MariaDB / MySQL (InnoDB, UTF-8 utf8mb4)
+-- Wersja: Nazewnictwo tabel w liczbie pojedynczej (zgodnie ze standardem akademickim)
+-- ============================================================================
 
--- 2. ZUNIFIKOWANI UŻYTKOWNICY
-CREATE TABLE Uzytkownik (
-    uzytkownik_ID INT AUTO_INCREMENT PRIMARY KEY,
-    login         VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL UNIQUE,
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS Platnosc;
+DROP TABLE IF EXISTS Szczegol_Zamowienia;
+DROP TABLE IF EXISTS Zamowienie;
+DROP TABLE IF EXISTS Recepta;
+DROP TABLE IF EXISTS Produkt;
+DROP TABLE IF EXISTS Adres_Klienta;
+DROP TABLE IF EXISTS Klient;
+DROP TABLE IF EXISTS Pracownik;
+DROP TABLE IF EXISTS Dostawca;
+DROP TABLE IF EXISTS Kategoria;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================================
+-- 1. KATEGORIA PRODUKTÓW
+-- ============================================================================
+CREATE TABLE Kategoria (
+    id_kategorii     INT AUTO_INCREMENT PRIMARY KEY,
+    nazwa_kategorii  VARCHAR(50) NOT NULL UNIQUE,
+    opis             TEXT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- 2. DOSTAWCA (HURTOWNIE I DYSTRYBUTORZY)
+-- ============================================================================
+CREATE TABLE Dostawca (
+    id_dostawcy INT AUTO_INCREMENT PRIMARY KEY,
+    nazwa_firmy VARCHAR(100) NOT NULL,
+    nip         VARCHAR(15) NULL UNIQUE,
+    telefon     VARCHAR(20) NULL,
+    email       VARCHAR(100) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- 3. PRACOWNIK APTEKI (FARMACEUTA, KIEROWNIK, ADMIN)
+-- ============================================================================
+CREATE TABLE Pracownik (
+    id_pracownika INT AUTO_INCREMENT PRIMARY KEY,
+    login         VARCHAR(50) NOT NULL UNIQUE,
     haslo         VARCHAR(255) NOT NULL,
-    email         VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL UNIQUE,
-    telefon       VARCHAR(20) NULL,
-    imie          VARCHAR(32) NULL,
-    nazwisko      VARCHAR(64) NULL,
-    ulica         VARCHAR(255) NULL,
-    numer_domu    VARCHAR(30) NULL,
-    kod_pocztowy  VARCHAR(20) NULL,
-    miasto        VARCHAR(64) NULL,
-    kraj          VARCHAR(64) NULL DEFAULT 'Polska',
-    rola          VARCHAR(16) NOT NULL DEFAULT 'KLIENT',
-    aktywny       TINYINT NOT NULL DEFAULT 1,
-    utworzony     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_uzytkownik_rola CHECK (rola IN ('KLIENT', 'ADMIN', 'FARMACEUTA', 'PRAKTYKANT'))
-);
+    imie          VARCHAR(50) NOT NULL,
+    nazwisko      VARCHAR(50) NOT NULL,
+    rola          VARCHAR(30) NOT NULL DEFAULT 'FARMACEUTA',
+    aktywny       TINYINT(1) NOT NULL DEFAULT 1,
+    CONSTRAINT chk_pracownik_rola CHECK (rola IN ('FARMACEUTA', 'KIEROWNIK', 'ADMIN'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. KATALOG LEKÓW
-CREATE TABLE Lek (
-    lek_ID            INT AUTO_INCREMENT PRIMARY KEY,
-    nazwa             VARCHAR(128) NOT NULL,
-    kategoria         VARCHAR(64) NULL, 
-    cena              DECIMAL(10, 2) NOT NULL,
-    opis              TEXT NOT NULL,
-    wymagana_Recepta  TINYINT NOT NULL DEFAULT 0,
-    dostepne          INT NOT NULL DEFAULT 0,
-    producent         VARCHAR(64) NULL,
-    substancja_czynna VARCHAR(128) NULL,
-    postac            VARCHAR(32) NULL,
-    dawka             VARCHAR(32) NULL,
-    ean               VARCHAR(13) NULL UNIQUE,
-    obraz_url         VARCHAR(255) NULL,
-    CONSTRAINT chk_lek_cena CHECK (cena >= 0),
-    CONSTRAINT chk_lek_dostepne CHECK (dostepne >= 0)
-);
+-- ============================================================================
+-- 4. KLIENT APTEKI
+-- ============================================================================
+CREATE TABLE Klient (
+    id_klienta       INT AUTO_INCREMENT PRIMARY KEY,
+    imie             VARCHAR(50) NOT NULL,
+    nazwisko         VARCHAR(50) NOT NULL,
+    email            VARCHAR(100) NOT NULL UNIQUE,
+    haslo            VARCHAR(255) NOT NULL,
+    telefon          VARCHAR(20) NULL,
+    data_rejestracji DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. RECEPTY
+-- ============================================================================
+-- 5. ADRES KLIENTA (ZNORMALIZOWANA KSIĄŻKA ADRESOWA)
+-- ============================================================================
+CREATE TABLE Adres_Klienta (
+    id_adresu        INT AUTO_INCREMENT PRIMARY KEY,
+    id_klienta       INT NOT NULL,
+    ulica            VARCHAR(100) NOT NULL,
+    numer_domu       VARCHAR(10) NOT NULL,
+    numer_mieszkania VARCHAR(10) NULL,
+    kod_pocztowy     VARCHAR(10) NOT NULL,
+    miasto           VARCHAR(50) NOT NULL,
+    CONSTRAINT fk_adres_klient FOREIGN KEY (id_klienta) 
+        REFERENCES Klient (id_klienta) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_adres_klient ON Adres_Klienta (id_klienta);
+
+-- ============================================================================
+-- 6. PRODUKT (KATALOG LEKÓW I SUPLEMENTÓW)
+-- ============================================================================
+CREATE TABLE Produkt (
+    id_produktu      INT AUTO_INCREMENT PRIMARY KEY,
+    id_kategorii     INT NOT NULL,
+    id_dostawcy      INT NOT NULL,
+    nazwa_produktu   VARCHAR(100) NOT NULL,
+    cena             DECIMAL(10, 2) NOT NULL,
+    stan_magazynowy  INT NOT NULL DEFAULT 0,
+    wymaga_recepty   TINYINT(1) NOT NULL DEFAULT 0,
+    CONSTRAINT fk_produkt_kategoria FOREIGN KEY (id_kategorii) 
+        REFERENCES Kategoria (id_kategorii) ON DELETE RESTRICT,
+    CONSTRAINT fk_produkt_dostawca FOREIGN KEY (id_dostawcy) 
+        REFERENCES Dostawca (id_dostawcy) ON DELETE RESTRICT,
+    CONSTRAINT chk_produkt_cena CHECK (cena >= 0),
+    CONSTRAINT chk_produkt_stan CHECK (stan_magazynowy >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_produkt_kategoria ON Produkt (id_kategorii);
+CREATE INDEX idx_produkt_dostawca ON Produkt (id_dostawcy);
+
+-- ============================================================================
+-- 7. RECEPTA LEKARSKA
+-- ============================================================================
 CREATE TABLE Recepta (
-    recepta_ID       INT AUTO_INCREMENT PRIMARY KEY,
-    recepta_Numer    VARCHAR(64) NOT NULL UNIQUE,
-    data_Wystawienia DATE NOT NULL,
-    uzytkownik_ID    INT NULL,
-    data_waznosci    DATE NOT NULL,
-    wykorzystana     TINYINT NOT NULL DEFAULT 0,
-    lekarz_nazwisko  VARCHAR(128) NULL,
-    lekarz_numer_pwz VARCHAR(16) NULL,
-    CONSTRAINT fk_recepta_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID) ON DELETE SET NULL
-);
+    id_recepty       INT AUTO_INCREMENT PRIMARY KEY,
+    id_klienta       INT NOT NULL,
+    kod_recepty      VARCHAR(10) NOT NULL,
+    pesel_pacjenta   VARCHAR(11) NOT NULL,
+    status_recepty   VARCHAR(20) NOT NULL DEFAULT 'NOWA',
+    CONSTRAINT fk_recepta_klient FOREIGN KEY (id_klienta) 
+        REFERENCES Klient (id_klienta) ON DELETE CASCADE,
+    CONSTRAINT chk_recepta_status CHECK (status_recepty IN ('NOWA', 'ZWERYFIKOWANA', 'ZREALIZOWANA', 'ODRZUCONA'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. ZAMÓWIENIA
+CREATE INDEX idx_recepta_klient ON Recepta (id_klienta);
+
+-- ============================================================================
+-- 8. ZAMÓWIENIE (NAGŁÓWEK TRANSAKCJI)
+-- ============================================================================
 CREATE TABLE Zamowienie (
-    zamowienie_ID        INT AUTO_INCREMENT PRIMARY KEY,
-    uzytkownik_ID        INT NOT NULL,
-    utworzony            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    aktualizacja         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    zrealizowane         DATETIME NULL,
-    status               VARCHAR(20) NOT NULL DEFAULT 'NOWE',
-    suma                 DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    metoda_dostawy_ID    INT NULL,
-    koszt_dostawy        DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    dostawa_odbiorca     VARCHAR(128) NULL,
-    dostawa_ulica        VARCHAR(255) NULL,
-    dostawa_numer_domu   VARCHAR(30) NULL,
-    dostawa_kod_pocztowy VARCHAR(20) NULL,
-    dostawa_miasto       VARCHAR(64) NULL,
-    dostawa_kraj         VARCHAR(64) NULL,
-    platnosc_metoda      VARCHAR(64) NULL,
-    platnosc_status      VARCHAR(20) NOT NULL DEFAULT 'OCZEKUJACA',
-    CONSTRAINT fk_zamowienie_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID),
-    CONSTRAINT fk_zamowienie_dostawa FOREIGN KEY (metoda_dostawy_ID) REFERENCES Metoda_Dostawy (metoda_dostawy_ID) ON DELETE SET NULL,
-    CONSTRAINT chk_zamowienie_status CHECK (status IN ('NOWE', 'OPLACONE', 'W_REALIZACJI', 'WYSLANE', 'ZREALIZOWANE', 'ANULOWANE')),
-    CONSTRAINT chk_zamowienie_suma CHECK (suma >= 0),
-    CONSTRAINT chk_platnosc_status CHECK (platnosc_status IN ('OCZEKUJACA', 'OPLACONA', 'NIEUDANA', 'ZWROCONA'))
-);
+    id_zamowienia     INT AUTO_INCREMENT PRIMARY KEY,
+    id_klienta        INT NOT NULL,
+    id_adresu         INT NOT NULL,
+    data_zamowienia   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status_zamowienia VARCHAR(20) NOT NULL DEFAULT 'NOWE',
+    suma_calkowita    DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    CONSTRAINT fk_zamowienie_klient FOREIGN KEY (id_klienta) 
+        REFERENCES Klient (id_klienta) ON DELETE RESTRICT,
+    CONSTRAINT fk_zamowienie_adres FOREIGN KEY (id_adresu) 
+        REFERENCES Adres_Klienta (id_adresu) ON DELETE RESTRICT,
+    CONSTRAINT chk_zamowienie_status CHECK (status_zamowienia IN ('NOWE', 'OPLACONE', 'W_REALIZACJI', 'WYSLANE', 'ZREALIZOWANE', 'ANULOWANE')),
+    CONSTRAINT chk_zamowienie_suma CHECK (suma_calkowita >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_zamowienie_uzytkownik ON Zamowienie (uzytkownik_ID);
-CREATE INDEX idx_zamowienie_status ON Zamowienie (status);
+CREATE INDEX idx_zamowienie_klient ON Zamowienie (id_klienta);
+CREATE INDEX idx_zamowienie_status ON Zamowienie (status_zamowienia);
 
--- 6. SZCZEGÓŁY ZAMÓWIENIA
-CREATE TABLE Zamowienie_Lek (
-    zamowienie_ID    INT NOT NULL,
-    lek_ID           INT NOT NULL,
-    recepta_ID       INT NULL,
-    krotnosc         INT NOT NULL DEFAULT 1,
+-- ============================================================================
+-- 9. SZCZEGÓŁ ZAMÓWIENIA (POZYCJA W KOSZYKU ZAMÓWIENIA)
+-- ============================================================================
+CREATE TABLE Szczegol_Zamowienia (
+    id_szczegolu     INT AUTO_INCREMENT PRIMARY KEY,
+    id_zamowienia    INT NOT NULL,
+    id_produktu      INT NOT NULL,
+    id_recepty       INT NULL,
+    ilosc            INT NOT NULL DEFAULT 1,
     cena_jednostkowa DECIMAL(10, 2) NOT NULL,
-    PRIMARY KEY (zamowienie_ID, lek_ID),
-    CONSTRAINT fk_zl_zamowienie FOREIGN KEY (zamowienie_ID) REFERENCES Zamowienie (zamowienie_ID) ON DELETE CASCADE,
-    CONSTRAINT fk_zl_lek FOREIGN KEY (lek_ID) REFERENCES Lek (lek_ID),
-    CONSTRAINT fk_zl_recepta FOREIGN KEY (recepta_ID) REFERENCES Recepta (recepta_ID),
-    CONSTRAINT chk_zl_krotnosc CHECK (krotnosc > 0),
-    CONSTRAINT chk_zl_cena CHECK (cena_jednostkowa >= 0)
-);
+    CONSTRAINT fk_szczegol_zamowienie FOREIGN KEY (id_zamowienia) 
+        REFERENCES Zamowienie (id_zamowienia) ON DELETE CASCADE,
+    CONSTRAINT fk_szczegol_produkt FOREIGN KEY (id_produktu) 
+        REFERENCES Produkt (id_produktu) ON DELETE RESTRICT,
+    CONSTRAINT fk_szczegol_recepta FOREIGN KEY (id_recepty) 
+        REFERENCES Recepta (id_recepty) ON DELETE SET NULL,
+    CONSTRAINT chk_szczegol_ilosc CHECK (ilosc > 0),
+    CONSTRAINT chk_szczegol_cena CHECK (cena_jednostkowa >= 0),
+    CONSTRAINT uq_zamowienie_produkt UNIQUE (id_zamowienia, id_produktu)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. KOSZYK
-CREATE TABLE Koszyk (
-    uzytkownik_ID INT NOT NULL,
-    lek_ID        INT NOT NULL,
-    ilosc         INT NOT NULL DEFAULT 1,
-    dodano        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (uzytkownik_ID, lek_ID),
-    CONSTRAINT fk_koszyk_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID) ON DELETE CASCADE,
-    CONSTRAINT fk_koszyk_lek FOREIGN KEY (lek_ID) REFERENCES Lek (lek_ID) ON DELETE CASCADE,
-    CONSTRAINT chk_koszyk_ilosc CHECK (ilosc > 0)
-);
+CREATE INDEX idx_szczegol_produkt ON Szczegol_Zamowienia (id_produktu);
+CREATE INDEX idx_szczegol_recepta ON Szczegol_Zamowienia (id_recepty);
 
--- 8. TOKENY
-CREATE TABLE Refresh_Token (
-    token_ID      INT AUTO_INCREMENT PRIMARY KEY,
-    uzytkownik_ID INT NOT NULL,
-    token_hash    CHAR(64) NOT NULL UNIQUE,
-    wygasa        DATETIME NOT NULL,
-    uniewazniony  TINYINT NOT NULL DEFAULT 0,
-    utworzony     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_refresh_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_refresh_wygasa ON Refresh_Token (wygasa);
-
--- 9. PARTIE LEKU
-CREATE TABLE Partia_Leku (
-    partia_ID     INT AUTO_INCREMENT PRIMARY KEY,
-    lek_ID        INT NOT NULL,
-    numer_serii   VARCHAR(64) NOT NULL,
-    data_waznosci DATE NOT NULL,
-    ilosc         INT NOT NULL DEFAULT 0,
-    przyjeta      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_partia_lek FOREIGN KEY (lek_ID) REFERENCES Lek (lek_ID) ON DELETE CASCADE,
-    CONSTRAINT uq_partia_lek_seria UNIQUE (lek_ID, numer_serii),
-    CONSTRAINT chk_partia_ilosc CHECK (ilosc >= 0)
-);
-
-CREATE INDEX idx_partia_waznosc ON Partia_Leku (data_waznosci);
-
--- 10. RUCHY MAGAZYNOWE
-CREATE TABLE Ruch_Magazynowy (
-    ruch_ID       INT AUTO_INCREMENT PRIMARY KEY,
-    lek_ID        INT NOT NULL,
-    partia_ID     INT NULL,
-    uzytkownik_ID INT NULL, 
-    zamowienie_ID INT NULL,
-    typ           VARCHAR(20) NOT NULL,
-    zmiana        INT NOT NULL,
-    data          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    uwagi         VARCHAR(255) NULL,
-    CONSTRAINT fk_ruch_lek FOREIGN KEY (lek_ID) REFERENCES Lek (lek_ID) ON DELETE CASCADE,
-    CONSTRAINT fk_ruch_partia FOREIGN KEY (partia_ID) REFERENCES Partia_Leku (partia_ID) ON DELETE SET NULL,
-    CONSTRAINT fk_ruch_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID) ON DELETE SET NULL,
-    CONSTRAINT fk_ruch_zamowienie FOREIGN KEY (zamowienie_ID) REFERENCES Zamowienie (zamowienie_ID) ON DELETE SET NULL,
-    CONSTRAINT chk_ruch_typ CHECK (typ IN ('DOSTAWA', 'SPRZEDAZ', 'ZWROT', 'KOREKTA', 'UTYLIZACJA')),
-    CONSTRAINT chk_ruch_zmiana CHECK (zmiana <> 0)
-);
-
-CREATE INDEX idx_ruch_lek_data ON Ruch_Magazynowy (lek_ID, data);
-
--- 11. OPINIE
-CREATE TABLE Opinia (
-    opinia_ID     INT AUTO_INCREMENT PRIMARY KEY,
-    lek_ID        INT NOT NULL,
-    uzytkownik_ID INT NOT NULL,
-    ocena         TINYINT NOT NULL,
-    tresc         TEXT NULL,
-    utworzona     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_opinia_lek FOREIGN KEY (lek_ID) REFERENCES Lek (lek_ID) ON DELETE CASCADE,
-    CONSTRAINT fk_opinia_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID) ON DELETE CASCADE,
-    CONSTRAINT uq_opinia_uzytkownik_lek UNIQUE (uzytkownik_ID, lek_ID),
-    CONSTRAINT chk_opinia_ocena CHECK (ocena BETWEEN 1 AND 5)
-);
-
--- 12. ULUBIONE
-CREATE TABLE Ulubione (
-    uzytkownik_ID INT NOT NULL,
-    lek_ID        INT NOT NULL,
-    dodano        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (uzytkownik_ID, lek_ID),
-    CONSTRAINT fk_ulubione_uzytkownik FOREIGN KEY (uzytkownik_ID) REFERENCES Uzytkownik (uzytkownik_ID) ON DELETE CASCADE,
-    CONSTRAINT fk_ulubione_lek FOREIGN KEY (lek_ID) REFERENCES Lek (lek_ID) ON DELETE CASCADE
-);
+-- ============================================================================
+-- 10. PŁATNOŚĆ TRANSAKCYJNA
+-- ============================================================================
+CREATE TABLE Platnosc (
+    id_platnosci     INT AUTO_INCREMENT PRIMARY KEY,
+    id_zamowienia    INT NOT NULL UNIQUE,
+    metoda_platnosci VARCHAR(30) NOT NULL,
+    status_platnosci VARCHAR(30) NOT NULL DEFAULT 'OCZEKUJACA',
+    data_platnosci   DATETIME NULL,
+    CONSTRAINT fk_platnosc_zamowienie FOREIGN KEY (id_zamowienia) 
+        REFERENCES Zamowienie (id_zamowienia) ON DELETE CASCADE,
+    CONSTRAINT chk_platnosc_status CHECK (status_platnosci IN ('OCZEKUJACA', 'OPLACONA', 'NIEUDANA', 'ZWROCONA'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
