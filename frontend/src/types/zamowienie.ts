@@ -1,3 +1,15 @@
+import type {
+  SzczegolZamowienia,
+  SzczegolZamowieniaCreate,
+  SzczegolZamowieniaUpdate,
+} from './szczegol_zamowienia';
+
+export type {
+  SzczegolZamowienia,
+  SzczegolZamowieniaCreate,
+  SzczegolZamowieniaUpdate,
+};
+
 export type StatusZamowienia =
   | 'NOWE'
   | 'OPLACONE'
@@ -5,21 +17,6 @@ export type StatusZamowienia =
   | 'WYSLANE'
   | 'ZREALIZOWANE'
   | 'ANULOWANE';
-
-export interface SzczegolZamowienia {
-  id_szczegolu: number;
-  id_zamowienia: number;
-  id_produktu: number;
-  id_recepty: number | null;
-  ilosc: number;
-  cena_jednostkowa: number;
-}
-
-export type SzczegolZamowieniaCreate = Pick<SzczegolZamowienia, 'id_produktu'> &
-  Partial<Pick<SzczegolZamowienia, 'id_recepty' | 'ilosc'>>;
-
-export type SzczegolZamowieniaUpdate = Pick<SzczegolZamowienia, 'id_produktu' | 'ilosc'> &
-  Partial<Pick<SzczegolZamowienia, 'id_recepty'>>;
 
 export interface Zamowienie {
   id_zamowienia: number;
@@ -31,17 +28,16 @@ export interface Zamowienie {
   pozycje: SzczegolZamowienia[];
 }
 
-export type ZamowienieCreate = Omit<
-  Zamowienie,
-  'id_zamowienia' | 'data_zamowienia' | 'status_zamowienia' | 'suma_calkowita' | 'pozycje'
-> &
-  Partial<Pick<Zamowienie, 'status_zamowienia'>> & {
-    pozycje: SzczegolZamowieniaCreate[];
-  };
-
-export type ZamowienieUpdate = Omit<
-  Zamowienie,
-  'id_zamowienia' | 'data_zamowienia' | 'suma_calkowita' | 'pozycje'
-> & {
+export interface ZamowienieCreate {
+  id_klienta: number;
+  id_adresu: number;
+  status_zamowienia?: StatusZamowienia;
   pozycje: SzczegolZamowieniaCreate[];
-};
+}
+
+export interface ZamowienieUpdate {
+  id_klienta: number;
+  id_adresu: number;
+  status_zamowienia: StatusZamowienia;
+  pozycje: SzczegolZamowieniaCreate[];
+}
