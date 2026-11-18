@@ -1,9 +1,12 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { zl } from '../utils/format';
 
 export const CartPage: React.FC = () => {
+  const navigate = useNavigate();
   const { items, count, total, setQuantity, remove, clear } = useCart();
+  const { isAuthenticated } = useAuth();
 
   if (items.length === 0) {
     return (
@@ -76,6 +79,14 @@ export const CartPage: React.FC = () => {
           <span className="font-medium text-slate-700">Razem</span>
           <span className="text-xl font-bold text-slate-900">{zl(total)}</span>
         </div>
+        <button
+          type="button"
+          disabled={items.length === 0}
+          onClick={() => navigate(isAuthenticated ? '/zamowienie/nowe' : '/login')}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-all shadow-sm hover:shadow-md shadow-teal-600/20"
+        >
+          Złóż zamówienie
+        </button>
       </aside>
     </div>
   );
