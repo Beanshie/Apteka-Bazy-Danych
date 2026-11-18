@@ -120,10 +120,22 @@ export const CheckoutPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to={`/zamowienia/${createdOrder.id_zamowienia}`}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-medium text-sm rounded-xl transition-all shadow-sm shadow-teal-600/20"
+          >
+            Szczegóły zamówienia
+          </Link>
+          <Link
+            to="/zamowienia"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm rounded-xl transition-all"
+          >
+            Moje zamówienia
+          </Link>
           <Link
             to="/"
-            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-medium text-sm rounded-xl transition-all shadow-sm shadow-teal-600/20"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm rounded-xl transition-all"
           >
             Powrót do listy produktów
           </Link>
