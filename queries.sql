@@ -48,3 +48,43 @@ WHERE p.cena > (
     WHERE p2.id_kategorii = p.id_kategorii
 )
 ORDER BY kat.nazwa_kategorii, p.cena DESC;
+
+-- ---------------- 4. Zapytanie - Raport zamówień z lekami na receptę (Rx) ----------------
+SELECT
+    z.id_zamowienia,
+    z.data_zamowienia,
+    CONCAT(k.imie, ' ', k.nazwisko) AS pacjent,
+    p.nazwa_produktu AS lek_rx,
+    sz.ilosc,
+    r.kod_recepty,
+    r.status_recepty,
+    z.status_zamowienia,
+    pl.metoda_platnosci,
+    pl.status_platnosci
+FROM Zamowienie z
+INNER JOIN Klient k ON z.id_klienta = k.id_klienta
+INNER JOIN Szczegol_Zamowienia sz ON z.id_zamowienia = sz.id_zamowienia
+INNER JOIN Produkt p ON sz.id_produktu = p.id_produktu
+LEFT JOIN Recepta r ON sz.id_recepty = r.id_recepty
+LEFT JOIN Platnosc pl ON z.id_zamowienia = pl.id_zamowienia
+WHERE p.wymaga_recepty = 1
+ORDER BY z.data_zamowienia DESC;-- ---------------- 4. Zapytanie - Raport zamówień z lekami na receptę (Rx) ----------------
+SELECT
+    z.id_zamowienia,
+    z.data_zamowienia,
+    CONCAT(k.imie, ' ', k.nazwisko) AS pacjent,
+    p.nazwa_produktu AS lek_rx,
+    sz.ilosc,
+    r.kod_recepty,
+    r.status_recepty,
+    z.status_zamowienia,
+    pl.metoda_platnosci,
+    pl.status_platnosci
+FROM Zamowienie z
+INNER JOIN Klient k ON z.id_klienta = k.id_klienta
+INNER JOIN Szczegol_Zamowienia sz ON z.id_zamowienia = sz.id_zamowienia
+INNER JOIN Produkt p ON sz.id_produktu = p.id_produktu
+LEFT JOIN Recepta r ON sz.id_recepty = r.id_recepty
+LEFT JOIN Platnosc pl ON z.id_zamowienia = pl.id_zamowienia
+WHERE p.wymaga_recepty = 1
+ORDER BY z.data_zamowienia DESC;
