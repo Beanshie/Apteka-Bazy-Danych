@@ -2,6 +2,7 @@ package pk.bd.apteka.service;
 
 import java.util.*;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
@@ -35,11 +36,9 @@ public class KategoriaService {
     }
 
     public List<Kategoria> list() {
-        StringBuilder sql =
-                new StringBuilder("SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria");
         Map<String, Object> parameters = new LinkedHashMap<>();
-        sql.append(" ORDER BY id_kategorii");
-        return jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Kategoria.class));
+        return jdbc.query("SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria" +
+                " ORDER BY id_kategorii", parameters, new BeanPropertyRowMapper<>(Kategoria.class));
     }
 
     @Transactional
@@ -49,11 +48,15 @@ public class KategoriaService {
         parameters.put("nazwa_kategorii", value.getNazwaKategorii());
         parameters.put("opis", value.getOpis());
         var key = new GeneratedKeyHolder();
-        jdbc.update(
-                "INSERT INTO Kategoria (nazwa_kategorii,opis) VALUES (:nazwa_kategorii,:opis)",
-                new MapSqlParameterSource(parameters),
-                key,
-                new String[]{"id_kategorii"});
+        try {
+            jdbc.update(
+                    "INSERT INTO Kategoria (nazwa_kategorii,opis) VALUES (:nazwa_kategorii,:opis)",
+                    new MapSqlParameterSource(parameters),
+                    key,
+                    new String[]{"id_kategorii"});
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Błąd integralności danych", e);
+        }
         int id = Objects.requireNonNull(key.getKey()).intValue();
         return get(id);
     }
@@ -61,22 +64,15 @@ public class KategoriaService {
     @Transactional
     public Kategoria update(Integer id, KategoriaUpdate value) {
         if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-        try {
-            jdbc.queryForObject(
-                    "SELECT id_kategorii,nazwa_kategorii,opis FROM Kategoria WHERE id_kategorii=:id"
-                            + " FOR UPDATE",
-                    new MapSqlParameterSource().addValue("id", id).getValues(),
-                    new BeanPropertyRowMapper<>(Kategoria.class));
-        } catch (EmptyResultDataAccessException errorItem) {
-            throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("nazwa_kategorii", value.getNazwaKategorii());
         parameters.put("opis", value.getOpis());
         parameters.put("_id", id);
-        jdbc.update(
+        int rows = jdbc.update(
                 "UPDATE Kategoria SET nazwa_kategorii=:nazwa_kategorii,opis=:opis WHERE id_kategorii=:_id",
                 new MapSqlParameterSource(parameters));
+        if(rows==0)
+            throw new NoSuchElementException("Nie znaleziono rekordu");
         return get(id);
     }
 

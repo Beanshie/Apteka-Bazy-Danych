@@ -2,6 +2,7 @@ package pk.bd.apteka.service;
 
 import java.util.*;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
@@ -49,12 +50,16 @@ public class DostawcaService {
         parameters.put("telefon", value.getTelefon());
         parameters.put("email", value.getEmail());
         var key = new GeneratedKeyHolder();
-        jdbc.update(
-                "INSERT INTO Dostawca (nazwa_firmy,nip,telefon,email) VALUES"
-                        + " (:nazwa_firmy,:nip,:telefon,:email)",
-                new MapSqlParameterSource(parameters),
-                key,
-                new String[]{"id_dostawcy"});
+        try {
+            jdbc.update(
+                    "INSERT INTO Dostawca (nazwa_firmy,nip,telefon,email) VALUES"
+                            + " (:nazwa_firmy,:nip,:telefon,:email)",
+                    new MapSqlParameterSource(parameters),
+                    key,
+                    new String[]{"id_dostawcy"});
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Błąd integralności danych", e);
+        }
         int id = Objects.requireNonNull(key.getKey()).intValue();
         return get(id);
     }
@@ -62,24 +67,18 @@ public class DostawcaService {
     @Transactional
     public Dostawca update(Integer id, DostawcaUpdate value) {
         if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-        try {
-            jdbc.queryForObject(
-                    "SELECT id_dostawcy,nazwa_firmy,nip,telefon,email FROM Dostawca WHERE id_dostawcy=:id",
-                    new MapSqlParameterSource().addValue("id", id).getValues(),
-                    new BeanPropertyRowMapper<>(Dostawca.class));
-        } catch (EmptyResultDataAccessException errorItem) {
-            throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("nazwa_firmy", value.getNazwaFirmy());
         parameters.put("nip", value.getNip());
         parameters.put("telefon", value.getTelefon());
         parameters.put("email", value.getEmail());
         parameters.put("_id", id);
-        jdbc.update(
+        int rows =jdbc.update(
                 "UPDATE Dostawca SET nazwa_firmy=:nazwa_firmy,nip=:nip,telefon=:telefon,email=:email WHERE"
                         + " id_dostawcy=:_id",
                 new MapSqlParameterSource(parameters));
+        if(rows==0)
+            throw new NoSuchElementException("Nie znaleziono rekordu");
         return get(id);
     }
 

@@ -3,6 +3,7 @@ package pk.bd.apteka.service;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
@@ -23,22 +24,6 @@ public class KlientService {
     @Transactional
     public Klient create(KlientCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-
-        if (value.getImie() == null || value.getImie().isBlank()) {
-            throw new IllegalArgumentException("Imię nie może być puste.");
-        }
-
-        if (value.getNazwisko() == null || value.getNazwisko().isBlank()) {
-            throw new IllegalArgumentException("Nazwisko nie może być puste.");
-        }
-
-        if (value.getEmail() == null || value.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Email nie może być pusty.");
-        }
-
-        if (value.getHaslo() == null || value.getHaslo().isBlank()) {
-            throw new IllegalArgumentException("Hasło nie może być puste.");
-        }
         String passwordHash =
                 new BCryptPasswordEncoder().encode(value.getHaslo());
 
@@ -47,17 +32,20 @@ public class KlientService {
                 VALUES (:imie, :nazwisko, :email, :haslo, :telefon)
                 """;
 
-        SqlParameterSource parameters = new MapSqlParameterSource()
-                .addValue("imie", value.getImie())
-                .addValue("nazwisko", value.getNazwisko())
-                .addValue("email", value.getEmail())
-                .addValue("haslo", passwordHash)
-                .addValue("telefon", value.getTelefon());
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("imie", value.getImie());
+        parameters.put("nazwisko", value.getNazwisko());
+        parameters.put("email", value.getEmail());
+        parameters.put("haslo", passwordHash);
+        parameters.put("telefon", value.getTelefon());
 
-        var keyHolder = new GeneratedKeyHolder();
-        jdbc.update(sql, parameters, keyHolder, new String[]{"id_klienta"});
-
-        int id = Objects.requireNonNull(keyHolder.getKey()).intValue();
+        var key = new GeneratedKeyHolder();
+        try {
+            jdbc.update(sql, new MapSqlParameterSource(parameters), key, new String[]{"id_klienta"});
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Błąd integralności danych", e);
+        }
+        int id = Objects.requireNonNull(key.getKey()).intValue();
         return get(id);
     }
 
@@ -79,25 +67,6 @@ public class KlientService {
     @Transactional
     public Klient update(Integer id, KlientUpdate value) {
         if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-        if (value == null) {
-            throw new IllegalArgumentException("Pole nie może być null: body");
-        }
-        if (value.getImie() == null || value.getImie().isBlank()) {
-            throw new IllegalArgumentException("Imię nie może być puste.");
-        }
-        if (value.getNazwisko() == null || value.getNazwisko().isBlank()) {
-            throw new IllegalArgumentException("Nazwisko nie może być puste.");
-        }
-        if (value.getEmail() == null || value.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Email nie może być pusty.");
-        }
-        if (value.getHaslo() != null && value.getHaslo().isBlank()) {
-            throw new IllegalArgumentException("Hasło nie może być puste.");
-        }
-        if (value.getHaslo() != null
-                && value.getHaslo().getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new IllegalArgumentException("Hasło przekracza 72 bajty.");
-        }
         String passwordHash = value.getHaslo() == null
                 ? null
                 : new BCryptPasswordEncoder().encode(value.getHaslo());

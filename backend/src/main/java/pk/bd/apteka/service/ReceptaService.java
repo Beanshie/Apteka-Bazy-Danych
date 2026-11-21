@@ -1,8 +1,9 @@
 package pk.bd.apteka.service;
 
-import java.math.BigDecimal;
 import java.util.*;
 
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
@@ -24,19 +25,16 @@ public class ReceptaService {
     }
 
     public Recepta get(Integer id) {
-        Recepta record;
         if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
         try {
-            record =
-                    jdbc.queryForObject(
-                            "SELECT id_recepty,id_klienta,kod_recepty,pesel_pacjenta,status_recepty FROM Recepta"
-                                    + " WHERE id_recepty=:id",
-                            new MapSqlParameterSource().addValue("id", id).getValues(),
-                            new BeanPropertyRowMapper<>(Recepta.class));
+            return jdbc.queryForObject(
+                    "SELECT id_recepty,id_klienta,kod_recepty,pesel_pacjenta,status_recepty FROM Recepta"
+                            + " WHERE id_recepty=:id",
+                    new MapSqlParameterSource().addValue("id", id).getValues(),
+                    new BeanPropertyRowMapper<>(Recepta.class));
         } catch (EmptyResultDataAccessException errorItem) {
             throw new NoSuchElementException("Nie znaleziono rekordu");
         }
-        return record;
     }
 
     public List<Recepta> list(Integer idKlienta, String kodRecepty, String statusRecepty) {
@@ -57,28 +55,30 @@ public class ReceptaService {
             sql.append(" AND status_recepty=:status_recepty");
             parameters.put("status_recepty", statusRecepty);
         }
-        sql.append(" ORDER BY id_recepty");
         return jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Recepta.class));
     }
 
     @Transactional
     public Recepta create(ReceptaCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        klient.get(value.getIdKlienta());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_klienta", value.getIdKlienta());
         parameters.put("kod_recepty", value.getKodRecepty());
         parameters.put("pesel_pacjenta", value.getPeselPacjenta());
         parameters.put(
                 "status_recepty",
-                value.getStatusRecepty() == null ? "NOWA" : (value.getStatusRecepty().getValue()));
+                value.getStatusRecepty() == null ? "NOWA" : value.getStatusRecepty().getValue());
         var key = new GeneratedKeyHolder();
-        jdbc.update(
-                "INSERT INTO Recepta (id_klienta,kod_recepty,pesel_pacjenta,status_recepty) VALUES"
-                        + " (:id_klienta,:kod_recepty,:pesel_pacjenta,:status_recepty)",
-                new MapSqlParameterSource(parameters),
-                key,
-                new String[]{"id_recepty"});
+        try {
+            jdbc.update(
+                    "INSERT INTO Recepta (id_klienta,kod_recepty,pesel_pacjenta,status_recepty) VALUES"
+                            + " (:id_klienta,:kod_recepty,:pesel_pacjenta,:status_recepty)",
+                    new MapSqlParameterSource(parameters),
+                    key,
+                    new String[]{"id_recepty"});
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Błąd integralności danych", e);
+        }
         int id = Objects.requireNonNull(key.getKey()).intValue();
         return get(id);
     }
@@ -86,31 +86,21 @@ public class ReceptaService {
     @Transactional
     public Recepta update(Integer id, ReceptaUpdate value) {
         if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-        try {
-            jdbc.queryForObject(
-                    "SELECT id_recepty,id_klienta,kod_recepty,pesel_pacjenta,status_recepty FROM Recepta"
-                            + " WHERE id_recepty=:id"
-                            + " FOR UPDATE",
-                    new MapSqlParameterSource().addValue("id", id).getValues(),
-                    new BeanPropertyRowMapper<>(Recepta.class));
-        } catch (EmptyResultDataAccessException errorItem) {
-            throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        klient.get(value.getIdKlienta());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_klienta", value.getIdKlienta());
         parameters.put("kod_recepty", value.getKodRecepty());
         parameters.put("pesel_pacjenta", value.getPeselPacjenta());
         parameters.put(
                 "status_recepty",
-                value.getStatusRecepty().getValue());
+                value.getStatusRecepty() == null ? null : value.getStatusRecepty().getValue());
         parameters.put("_id", id);
-        jdbc.update(
+        int rows = jdbc.update(
                 "UPDATE Recepta SET"
                         + " kod_recepty=:kod_recepty,pesel_pacjenta=:pesel_pacjenta,status_recepty=:status_recepty"
                         + " WHERE id_recepty=:_id AND id_klienta=:id_klienta",
                 new MapSqlParameterSource(parameters));
+        if (rows == 0) throw new NoSuchElementException("Nie znaleziono rekordu");
         return get(id);
     }
 

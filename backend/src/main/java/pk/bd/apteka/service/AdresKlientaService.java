@@ -2,6 +2,7 @@ package pk.bd.apteka.service;
 
 import java.util.*;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
@@ -15,11 +16,8 @@ public class AdresKlientaService {
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    private final KlientService klient;
-
-    public AdresKlientaService(NamedParameterJdbcTemplate jdbc, KlientService klient) {
+    public AdresKlientaService(NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.klient = klient;
     }
 
     public AdresKlienta get(Integer id) {
@@ -52,7 +50,6 @@ public class AdresKlientaService {
     @Transactional
     public AdresKlienta create(AdresKlientaCreate value) {
         if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-        klient.get(value.getIdKlienta());
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_klienta", value.getIdKlienta());
         parameters.put("ulica", value.getUlica());
@@ -61,13 +58,17 @@ public class AdresKlientaService {
         parameters.put("kod_pocztowy", value.getKodPocztowy());
         parameters.put("miasto", value.getMiasto());
         var key = new GeneratedKeyHolder();
-        jdbc.update(
-                "INSERT INTO Adres_Klienta"
-                        + " (id_klienta,ulica,numer_domu,numer_mieszkania,kod_pocztowy,miasto) VALUES"
-                        + " (:id_klienta,:ulica,:numer_domu,:numer_mieszkania,:kod_pocztowy,:miasto)",
-                new MapSqlParameterSource(parameters),
-                key,
-                new String[]{"id_adresu"});
+        try {
+            jdbc.update(
+                    "INSERT INTO Adres_Klienta"
+                            + " (id_klienta,ulica,numer_domu,numer_mieszkania,kod_pocztowy,miasto) VALUES"
+                            + " (:id_klienta,:ulica,:numer_domu,:numer_mieszkania,:kod_pocztowy,:miasto)",
+                    new MapSqlParameterSource(parameters),
+                    key,
+                    new String[]{"id_adresu"});
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Błąd integralności danych", e);
+        }
         int id = Objects.requireNonNull(key.getKey()).intValue();
         return get(id);
     }
@@ -76,18 +77,6 @@ public class AdresKlientaService {
     public AdresKlienta update(Integer id, AdresKlientaUpdate value) {
         if (id == null || id < 1)
             throw new IllegalArgumentException("Niepoprawne ID");
-
-        try {
-            jdbc.queryForObject(
-                    "SELECT id_adresu FROM Adres_Klienta WHERE id_adresu=:id",
-                    new MapSqlParameterSource("id", id),
-                    Integer.class);
-        } catch (EmptyResultDataAccessException error) {
-            throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
-
-        klient.get(value.getIdKlienta());
-
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("id_klienta", value.getIdKlienta());
         parameters.put("ulica", value.getUlica());
@@ -97,13 +86,14 @@ public class AdresKlientaService {
         parameters.put("miasto", value.getMiasto());
         parameters.put("_id", id);
 
-        jdbc.update(
+        int rows= jdbc.update(
                 "UPDATE Adres_Klienta SET"
                         + " ulica=:ulica,numer_domu=:numer_domu,"
                         + "numer_mieszkania=:numer_mieszkania,kod_pocztowy=:kod_pocztowy,"
                         + "miasto=:miasto WHERE id_adresu=:_id  AND id_klienta=:id_klienta",
                 new MapSqlParameterSource(parameters));
-
+        if(rows==0)
+            throw new NoSuchElementException("Nie znaleziono rekordu");
         return get(id);
     }
 

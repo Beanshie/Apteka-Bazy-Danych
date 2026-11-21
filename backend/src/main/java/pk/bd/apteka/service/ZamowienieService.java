@@ -1,7 +1,11 @@
 package pk.bd.apteka.service;
 
-import java.math.BigDecimal;
+import java.beans.PropertyDescriptor;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.ZoneOffset;
 import java.util.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.*;
@@ -13,73 +17,53 @@ import pk.bd.apteka.dto.*;
 @Service
 public class ZamowienieService {
 
+  private static final String ORDER_COLUMNS =
+      "id_zamowienia,id_klienta,id_adresu,data_zamowienia,status_zamowienia,suma_calkowita";
+  private static final String ITEM_COLUMNS =
+      "id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa";
+
   private final NamedParameterJdbcTemplate jdbc;
-
-  private final AdresKlientaService adresklienta;
-
   private final KlientService klient;
-
   private final ProduktService produkt;
 
-  private final ReceptaService recepta;
-
   public ZamowienieService(
-      NamedParameterJdbcTemplate jdbc,
-      AdresKlientaService adresklienta,
-      KlientService klient,
-      ProduktService produkt,
-      ReceptaService recepta) {
+      NamedParameterJdbcTemplate jdbc, KlientService klient, ProduktService produkt) {
     this.jdbc = jdbc;
-    this.adresklienta = adresklienta;
     this.klient = klient;
     this.produkt = produkt;
-    this.recepta = recepta;
   }
 
   public Zamowienie get(Integer id) {
-    Zamowienie record;
-    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
+    validateId(id);
+    Zamowienie order;
     try {
-      record =
+      order =
           jdbc.queryForObject(
-              "SELECT"
-                  + " id_zamowienia,id_klienta,id_adresu,data_zamowienia,status_zamowienia,suma_calkowita"
-                  + " FROM Zamowienie WHERE id_zamowienia=:id",
+              "SELECT " + ORDER_COLUMNS + " FROM Zamowienie WHERE id_zamowienia=:id",
               new MapSqlParameterSource("id", id),
-              (rs, index) -> {
-                var mappedRecord = new Zamowienie();
-                mappedRecord.setIdZamowienia(rs.getObject("id_zamowienia", Integer.class));
-                mappedRecord.setIdKlienta(rs.getObject("id_klienta", Integer.class));
-                mappedRecord.setIdAdresu(rs.getObject("id_adresu", Integer.class));
-                mappedRecord.setDataZamowienia(
-                    rs.getTimestamp("data_zamowienia") == null
+              new BeanPropertyRowMapper<>(Zamowienie.class) {
+                @Override
+                protected Object getColumnValue(ResultSet rs, int index, PropertyDescriptor property)
+                    throws SQLException {
+                  if ("dataZamowienia".equals(property.getName())) {
+                    var timestamp = rs.getTimestamp(index);
+                    return timestamp == null
                         ? null
-                        : rs.getTimestamp("data_zamowienia")
-                            .toLocalDateTime()
-                            .atOffset(java.time.ZoneOffset.UTC));
-                mappedRecord.setStatusZamowienia(
-                    Zamowienie.StatusZamowieniaEnum.fromValue(rs.getString("status_zamowienia")));
-                mappedRecord.setSumaCalkowita(rs.getBigDecimal("suma_calkowita"));
-                return mappedRecord;
+                        : timestamp.toLocalDateTime().atOffset(ZoneOffset.UTC);
+                  }
+                  return super.getColumnValue(rs, index, property);
+                }
               });
-    } catch (EmptyResultDataAccessException errorItem) {
+    } catch (EmptyResultDataAccessException error) {
       throw new NoSuchElementException("Nie znaleziono rekordu");
     }
-    record.setPozycje(
-        jdbc.query(
-            "SELECT id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa FROM"
-                + " Szczegol_Zamowienia WHERE id_zamowienia=:id ORDER BY id_szczegolu",
-            new MapSqlParameterSource("id", id),
-            new BeanPropertyRowMapper<>(SzczegolZamowienia.class)));
-    return record;
+    order.setPozycje(loadItems(id));
+    return order;
   }
 
   public List<Zamowienie> list(Integer idKlienta, String statusZamowienia) {
     StringBuilder sql =
-        new StringBuilder(
-            "SELECT"
-                + " id_zamowienia,id_klienta,id_adresu,data_zamowienia,status_zamowienia,suma_calkowita"
-                + " FROM Zamowienie WHERE 1=1");
+        new StringBuilder("SELECT " + ORDER_COLUMNS + " FROM Zamowienie WHERE 1=1");
     Map<String, Object> parameters = new LinkedHashMap<>();
     if (idKlienta != null) {
       sql.append(" AND id_klienta=:id_klienta");
@@ -90,316 +74,214 @@ public class ZamowienieService {
       parameters.put("status_zamowienia", statusZamowienia);
     }
     sql.append(" ORDER BY id_zamowienia");
-    var result =
-        jdbc.query(
-            sql.toString(),
-            parameters,
-            (rs, index) -> {
-              var mappedRecord = new Zamowienie();
-              mappedRecord.setIdZamowienia(rs.getObject("id_zamowienia", Integer.class));
-              mappedRecord.setIdKlienta(rs.getObject("id_klienta", Integer.class));
-              mappedRecord.setIdAdresu(rs.getObject("id_adresu", Integer.class));
-              mappedRecord.setDataZamowienia(
-                  rs.getTimestamp("data_zamowienia") == null
-                      ? null
-                      : rs.getTimestamp("data_zamowienia")
-                          .toLocalDateTime()
-                          .atOffset(java.time.ZoneOffset.UTC));
-              mappedRecord.setStatusZamowienia(
-                  Zamowienie.StatusZamowieniaEnum.fromValue(rs.getString("status_zamowienia")));
-              mappedRecord.setSumaCalkowita(rs.getBigDecimal("suma_calkowita"));
-              return mappedRecord;
-            });
-    for (var value : result) {
-      value.setPozycje(
-          jdbc.query(
-              "SELECT id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa FROM"
-                  + " Szczegol_Zamowienia WHERE id_zamowienia=:id ORDER BY id_szczegolu",
-              new MapSqlParameterSource("id", value.getIdZamowienia()),
-              new BeanPropertyRowMapper<>(SzczegolZamowienia.class)));
+    var orders =
+        jdbc.query(sql.toString(), parameters, new BeanPropertyRowMapper<>(Zamowienie.class) {
+          @Override
+          protected Object getColumnValue(ResultSet rs, int index, PropertyDescriptor property)
+              throws SQLException {
+            if ("dataZamowienia".equals(property.getName())) {
+              var timestamp = rs.getTimestamp(index);
+              return timestamp == null
+                  ? null
+                  : timestamp.toLocalDateTime().atOffset(ZoneOffset.UTC);
+            }
+            return super.getColumnValue(rs, index, property);
+          }
+        });
+    if (orders.isEmpty()) return orders;
+
+    Map<Integer, Zamowienie> byId = new LinkedHashMap<>();
+    for (var order : orders) {
+      order.setPozycje(new ArrayList<>());
+      byId.put(order.getIdZamowienia(), order);
     }
-    return result;
+    var items =
+        jdbc.query(
+            "SELECT " + ITEM_COLUMNS + " FROM Szczegol_Zamowienia"
+                + " WHERE id_zamowienia IN (:orders) ORDER BY id_szczegolu",
+            new MapSqlParameterSource("orders", byId.keySet()),
+            new BeanPropertyRowMapper<>(SzczegolZamowienia.class));
+    for (var item : items) {
+      byId.get(item.getIdZamowienia()).getPozycje().add(item);
+    }
+    return orders;
   }
 
   @Transactional
   public Zamowienie create(ZamowienieCreate value) {
-
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    if (value.getIdKlienta() == null)
-      throw new IllegalArgumentException("Pole nie może być null: id_klienta");
-    if (value.getIdKlienta() < 1) throw new IllegalArgumentException("Niepoprawna liczba");
-    klient.get(value.getIdKlienta());
-    if (value.getIdAdresu() == null)
-      throw new IllegalArgumentException("Pole nie może być null: id_adresu");
-    if (value.getIdAdresu() < 1) throw new IllegalArgumentException("Niepoprawna liczba");
-    adresklienta.get(value.getIdAdresu());
+    validateItems(value.getPozycje());
+    // Acquire product locks before the new header's foreign keys lock its address.
+    lockProducts();
+    validateAddress(value.getIdAdresu(), value.getIdKlienta());
 
+    Map<String, Object> parameters = new LinkedHashMap<>();
+    parameters.put("id_klienta", value.getIdKlienta());
+    parameters.put("id_adresu", value.getIdAdresu());
+    parameters.put(
+        "status_zamowienia",
+        value.getStatusZamowienia() == null ? "NOWE" : value.getStatusZamowienia().getValue());
     var key = new GeneratedKeyHolder();
-    jdbc.update(
-        "INSERT INTO Zamowienie (id_klienta,id_adresu,status_zamowienia)"
-            + " VALUES (:client,:address,:status)",
-        new MapSqlParameterSource("client", value.getIdKlienta())
-            .addValue("address", value.getIdAdresu())
-            .addValue(
-                "status",
-                value.getStatusZamowienia() == null
-                    ? "NOWE"
-                    : value.getStatusZamowienia().getValue()),
-        key,
-        new String[] {"id_zamowienia"});
-    int id = Objects.requireNonNull(key.getKey()).intValue();
-    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
-    boolean active = value.getStatusZamowienia() != ZamowienieCreate.StatusZamowieniaEnum.ANULOWANE;
-
-    if (value.getPozycje() == null || value.getPozycje().isEmpty())
-      throw new IllegalArgumentException("Wymagane pozycje");
-    for (var item : value.getPozycje()) {
-      if (item == null) throw new IllegalArgumentException("Pole nie może być null: pozycja");
-      if (item.getIdProduktu() == null)
-        throw new IllegalArgumentException("Pole nie może być null: id_produktu");
-      if (item.getIdProduktu() < 1) throw new IllegalArgumentException("Niepoprawne ID");
-      int quantity = item.getIlosc() == null ? 1 : item.getIlosc();
-      if (quantity < 1) throw new IllegalArgumentException("Niepoprawna liczba");
-      if (item.getIdRecepty() != null) recepta.get(item.getIdRecepty());
-      jdbc.update(
-          "INSERT INTO Szczegol_Zamowienia"
-              + " (id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa)"
-              + " VALUES (:order,:product,:prescription,:quantity,:price)",
-          new MapSqlParameterSource("order", id)
-              .addValue("product", item.getIdProduktu())
-              .addValue("prescription", item.getIdRecepty())
-              .addValue("quantity", quantity)
-              .addValue("price", produkt.get(item.getIdProduktu()).getCena()));
-    }
     try {
-      if (!Objects.equals(
-          jdbc.queryForObject(
-              "SELECT id_klienta FROM Adres_Klienta WHERE id_adresu=:id FOR UPDATE",
-              new MapSqlParameterSource("id", value.getIdAdresu()),
-              Integer.class),
-          value.getIdKlienta()))
-        throw new IllegalArgumentException("Adres należy do innego klienta");
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
+      jdbc.update(
+          "INSERT INTO Zamowienie (id_klienta,id_adresu,status_zamowienia)"
+              + " VALUES (:id_klienta,:id_adresu,:status_zamowienia)",
+          new MapSqlParameterSource(parameters),
+          key,
+          new String[] {"id_zamowienia"});
+      int id = Objects.requireNonNull(key.getKey()).intValue();
+      insertItems(id, value.getIdKlienta(), value.getPozycje());
+      return get(id);
+    } catch (DataIntegrityViolationException e) {
+      throw OrderItemConstraintErrors.translateCreate(e);
     }
-    var orderItems =
-        jdbc.query(
-            "SELECT id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa"
-                + " FROM Szczegol_Zamowienia WHERE id_zamowienia=:id ORDER BY id_szczegolu",
-            new MapSqlParameterSource("id", id),
-            new BeanPropertyRowMapper<>(SzczegolZamowienia.class));
-    for (var item : orderItems) {
-      var selectedProduct = produkt.get(item.getIdProduktu());
-      if (item.getIdRecepty() != null) {
-        if (item.getIdRecepty() < 1) throw new IllegalArgumentException("Niepoprawne ID");
-        Recepta prescription;
-        try {
-          prescription =
-              jdbc.queryForObject(
-                  "SELECT id_klienta,status_recepty FROM Recepta WHERE id_recepty=:id FOR UPDATE",
-                  new MapSqlParameterSource("id", item.getIdRecepty()),
-                  new BeanPropertyRowMapper<>(Recepta.class));
-        } catch (EmptyResultDataAccessException error) {
-          throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
-        if (!Objects.equals(prescription.getIdKlienta(), value.getIdKlienta()))
-          throw new IllegalArgumentException("Recepta należy do innego klienta");
-        if (prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.NOWA
-            && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.ZWERYFIKOWANA)
-          throw new IllegalArgumentException("Recepta nie jest ważna");
-      }
-      if (selectedProduct.getWymagaRecepty() && item.getIdRecepty() == null)
-        throw new IllegalArgumentException("Wymagana recepta");
-    }
-    if (active) {
-      for (var item : orderItems) {
-        if (jdbc.update(
-                "UPDATE Produkt SET stan_magazynowy=stan_magazynowy-:quantity"
-                    + " WHERE id_produktu=:product AND stan_magazynowy>=:quantity",
-                new MapSqlParameterSource("quantity", item.getIlosc())
-                    .addValue("product", item.getIdProduktu()))
-            == 0) throw new IllegalArgumentException("Brak produktu na stanie");
-      }
-    }
-    BigDecimal total =
-        orderItems.stream()
-            .map(item -> item.getCenaJednostkowa().multiply(BigDecimal.valueOf(item.getIlosc())))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-    if (total.compareTo(new BigDecimal("99999999.99")) > 0)
-      throw new IllegalArgumentException("Zbyt duża suma");
-    jdbc.update(
-        "UPDATE Zamowienie SET suma_calkowita=:total WHERE id_zamowienia=:id",
-        new MapSqlParameterSource("total", total).addValue("id", id));
-    return get(id);
   }
 
   @Transactional
   public Zamowienie update(Integer id, ZamowienieUpdate value) {
-    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-    String previousStatus;
-    try {
-      previousStatus =
-          jdbc.queryForObject(
-              "SELECT status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
-              new MapSqlParameterSource("id", id),
-              String.class);
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
-    }
-
-    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
-    if (!"ANULOWANE".equals(previousStatus)) {
-      for (var item :
-          jdbc.query(
-              "SELECT id_produktu,ilosc FROM Szczegol_Zamowienia"
-                  + " WHERE id_zamowienia=:id ORDER BY id_szczegolu",
-              new MapSqlParameterSource("id", id),
-              new BeanPropertyRowMapper<>(SzczegolZamowienia.class))) {
-        jdbc.update(
-            "UPDATE Produkt SET stan_magazynowy=stan_magazynowy+:quantity WHERE"
-                + " id_produktu=:product",
-            new MapSqlParameterSource("quantity", item.getIlosc())
-                .addValue("product", item.getIdProduktu()));
-      }
-    }
-
+    validateId(id);
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    if (value.getIdKlienta() == null)
-      throw new IllegalArgumentException("Pole nie może być null: id_klienta");
-    if (value.getIdKlienta() < 1) throw new IllegalArgumentException("Niepoprawna liczba");
+    validateItems(value.getPozycje());
+    lockOrder(id);
+    lockProducts();
     klient.get(value.getIdKlienta());
-    if (value.getIdAdresu() == null)
-      throw new IllegalArgumentException("Pole nie może być null: id_adresu");
-    if (value.getIdAdresu() < 1) throw new IllegalArgumentException("Niepoprawna liczba");
-    adresklienta.get(value.getIdAdresu());
+    validateAddress(value.getIdAdresu(), value.getIdKlienta());
 
-    if (value.getStatusZamowienia() == null)
-      throw new IllegalArgumentException("Pole nie może być null: status_zamowienia");
-    jdbc.update(
-        "UPDATE Zamowienie SET id_klienta=:client,id_adresu=:address,status_zamowienia=:status"
-            + " WHERE id_zamowienia=:id",
-        new MapSqlParameterSource("id", id)
-            .addValue("client", value.getIdKlienta())
-            .addValue("address", value.getIdAdresu())
-            .addValue("status", value.getStatusZamowienia().getValue()));
-    if (value.getPozycje() == null || value.getPozycje().isEmpty())
-      throw new IllegalArgumentException("Wymagane pozycje");
-    jdbc.update(
-        "DELETE FROM Szczegol_Zamowienia WHERE id_zamowienia=:id",
-        new MapSqlParameterSource("id", id));
-    boolean active = value.getStatusZamowienia() != ZamowienieUpdate.StatusZamowieniaEnum.ANULOWANE;
-
-    for (var item : value.getPozycje()) {
-      if (item == null) throw new IllegalArgumentException("Pole nie może być null: pozycja");
-      if (item.getIdProduktu() == null)
-        throw new IllegalArgumentException("Pole nie może być null: id_produktu");
-      if (item.getIdProduktu() < 1) throw new IllegalArgumentException("Niepoprawne ID");
-      int quantity = item.getIlosc() == null ? 1 : item.getIlosc();
-      if (quantity < 1) throw new IllegalArgumentException("Niepoprawna liczba");
-      if (item.getIdRecepty() != null) recepta.get(item.getIdRecepty());
-      jdbc.update(
-          "INSERT INTO Szczegol_Zamowienia"
-              + " (id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa)"
-              + " VALUES (:order,:product,:prescription,:quantity,:price)",
-          new MapSqlParameterSource("order", id)
-              .addValue("product", item.getIdProduktu())
-              .addValue("prescription", item.getIdRecepty())
-              .addValue("quantity", quantity)
-              .addValue("price", produkt.get(item.getIdProduktu()).getCena()));
-    }
+    String status =
+        value.getStatusZamowienia() == null ? null : value.getStatusZamowienia().getValue();
+    Map<String, Object> parameters = new LinkedHashMap<>();
+    parameters.put("id_klienta", value.getIdKlienta());
+    parameters.put("id_adresu", value.getIdAdresu());
+    parameters.put("status_zamowienia", status);
+    parameters.put("_id", id);
     try {
-      if (!Objects.equals(
-          jdbc.queryForObject(
-              "SELECT id_klienta FROM Adres_Klienta WHERE id_adresu=:id FOR UPDATE",
-              new MapSqlParameterSource("id", value.getIdAdresu()),
-              Integer.class),
-          value.getIdKlienta()))
-        throw new IllegalArgumentException("Adres należy do innego klienta");
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
+      // Release reservations using the old status before inserting under the new status.
+      jdbc.update(
+          "DELETE FROM Szczegol_Zamowienia WHERE id_zamowienia=:id",
+          new MapSqlParameterSource("id", id));
+      jdbc.update(
+          "UPDATE Zamowienie SET id_klienta=:id_klienta,id_adresu=:id_adresu,"
+              + "status_zamowienia=:status_zamowienia WHERE id_zamowienia=:_id",
+          new MapSqlParameterSource(parameters));
+      insertItems(id, value.getIdKlienta(), value.getPozycje());
+    } catch (DataIntegrityViolationException error) {
+      throw OrderItemConstraintErrors.translate(error);
     }
-    var orderItems =
-        jdbc.query(
-            "SELECT id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa"
-                + " FROM Szczegol_Zamowienia WHERE id_zamowienia=:id ORDER BY id_szczegolu",
-            new MapSqlParameterSource("id", id),
-            new BeanPropertyRowMapper<>(SzczegolZamowienia.class));
-    for (var item : orderItems) {
-      var selectedProduct = produkt.get(item.getIdProduktu());
-      if (item.getIdRecepty() != null) {
-        if (item.getIdRecepty() < 1) throw new IllegalArgumentException("Niepoprawne ID");
-        Recepta prescription;
-        try {
-          prescription =
-              jdbc.queryForObject(
-                  "SELECT id_klienta,status_recepty FROM Recepta WHERE id_recepty=:id FOR UPDATE",
-                  new MapSqlParameterSource("id", item.getIdRecepty()),
-                  new BeanPropertyRowMapper<>(Recepta.class));
-        } catch (EmptyResultDataAccessException error) {
-          throw new NoSuchElementException("Nie znaleziono rekordu");
-        }
-        if (!Objects.equals(prescription.getIdKlienta(), value.getIdKlienta()))
-          throw new IllegalArgumentException("Recepta należy do innego klienta");
-        if (prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.NOWA
-            && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.ZWERYFIKOWANA)
-          throw new IllegalArgumentException("Recepta nie jest ważna");
-      }
-      if (selectedProduct.getWymagaRecepty() && item.getIdRecepty() == null)
-        throw new IllegalArgumentException("Wymagana recepta");
-    }
-    if (active) {
-      for (var item : orderItems) {
-        if (jdbc.update(
-                "UPDATE Produkt SET stan_magazynowy=stan_magazynowy-:quantity"
-                    + " WHERE id_produktu=:product AND stan_magazynowy>=:quantity",
-                new MapSqlParameterSource("quantity", item.getIlosc())
-                    .addValue("product", item.getIdProduktu()))
-            == 0) throw new IllegalArgumentException("Brak produktu na stanie");
-      }
-    }
-    BigDecimal total =
-        orderItems.stream()
-            .map(item -> item.getCenaJednostkowa().multiply(BigDecimal.valueOf(item.getIlosc())))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-    if (total.compareTo(new BigDecimal("99999999.99")) > 0)
-      throw new IllegalArgumentException("Zbyt duża suma");
-    jdbc.update(
-        "UPDATE Zamowienie SET suma_calkowita=:total WHERE id_zamowienia=:id",
-        new MapSqlParameterSource("total", total).addValue("id", id));
     return get(id);
   }
 
   @Transactional
   public void delete(Integer id) {
-    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-    String previousStatus;
+    validateId(id);
     try {
-      previousStatus =
-          jdbc.queryForObject(
-              "SELECT status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
-              new MapSqlParameterSource("id", id),
-              String.class);
-    } catch (EmptyResultDataAccessException error) {
+      lockOrder(id);
+    } catch (NoSuchElementException error) {
       return;
     }
-
-    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
-    if (!"ANULOWANE".equals(previousStatus)) {
-      for (var item :
-          jdbc.query(
-              "SELECT id_produktu,ilosc FROM Szczegol_Zamowienia"
-                  + " WHERE id_zamowienia=:id ORDER BY id_szczegolu",
-              new MapSqlParameterSource("id", id),
-              new BeanPropertyRowMapper<>(SzczegolZamowienia.class))) {
-        jdbc.update(
-            "UPDATE Produkt SET stan_magazynowy=stan_magazynowy+:quantity WHERE"
-                + " id_produktu=:product",
-            new MapSqlParameterSource("quantity", item.getIlosc())
-                .addValue("product", item.getIdProduktu()));
-      }
-    }
-
+    lockProducts();
+    // Foreign-key cascades do not execute the item-delete trigger.
+    jdbc.update(
+        "DELETE FROM Szczegol_Zamowienia WHERE id_zamowienia=:id",
+        new MapSqlParameterSource("id", id));
     jdbc.update(
         "DELETE FROM Zamowienie WHERE id_zamowienia=:id", new MapSqlParameterSource("id", id));
+  }
+
+  private void validateId(Integer id) {
+    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
+  }
+
+  private void validateItems(List<SzczegolZamowieniaCreate> items) {
+    if (items == null || items.isEmpty()) throw new IllegalArgumentException("Wymagane pozycje");
+    for (var item : items) {
+      if (item == null) throw new IllegalArgumentException("Pole nie może być null: pozycja");
+    }
+  }
+
+  private String lockOrder(Integer id) {
+    try {
+      return jdbc.queryForObject(
+          "SELECT status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
+          new MapSqlParameterSource("id", id),
+          String.class);
+    } catch (EmptyResultDataAccessException error) {
+      throw new NoSuchElementException("Nie znaleziono rekordu");
+    }
+  }
+
+  private void lockProducts() {
+    // Use the same product lock order as SzczegolZamowieniaService.
+    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
+  }
+
+  private void validateAddress(Integer idAdresu, Integer idKlienta) {
+    validateId(idAdresu);
+    try {
+      Integer owner =
+          jdbc.queryForObject(
+              "SELECT id_klienta FROM Adres_Klienta WHERE id_adresu=:id FOR UPDATE",
+              new MapSqlParameterSource("id", idAdresu),
+              Integer.class);
+      if (!Objects.equals(owner, idKlienta))
+        throw new IllegalArgumentException("Adres należy do innego klienta");
+    } catch (EmptyResultDataAccessException error) {
+      throw new NoSuchElementException("Nie znaleziono rekordu");
+    }
+  }
+
+  private Recepta lockPrescription(Integer id) {
+    validateId(id);
+    try {
+      return jdbc.queryForObject(
+          "SELECT id_klienta,status_recepty FROM Recepta WHERE id_recepty=:id FOR UPDATE",
+          new MapSqlParameterSource("id", id),
+          new BeanPropertyRowMapper<>(Recepta.class));
+    } catch (EmptyResultDataAccessException error) {
+      throw new NoSuchElementException("Nie znaleziono rekordu");
+    }
+  }
+
+  private void insertItems(
+      Integer id, Integer idKlienta, List<SzczegolZamowieniaCreate> items) {
+    Map<Integer, Produkt> products = new HashMap<>();
+    Map<Integer, Recepta> prescriptions = new HashMap<>();
+    for (var item : items) {
+      var selectedProduct = products.computeIfAbsent(item.getIdProduktu(), produkt::get);
+      Recepta prescription =
+          item.getIdRecepty() == null
+              ? null
+              : prescriptions.computeIfAbsent(item.getIdRecepty(), this::lockPrescription);
+      validatePrescription(idKlienta, selectedProduct, prescription);
+      Map<String, Object> parameters = new LinkedHashMap<>();
+      parameters.put("id_zamowienia", id);
+      parameters.put("id_produktu", item.getIdProduktu());
+      parameters.put("id_recepty", item.getIdRecepty());
+      parameters.put("ilosc", item.getIlosc() == null ? 1 : item.getIlosc());
+      jdbc.update(
+          "INSERT INTO Szczegol_Zamowienia"
+              + " (id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa)"
+              + " VALUES (:id_zamowienia,:id_produktu,:id_recepty,:ilosc,NULL)",
+          new MapSqlParameterSource(parameters));
+    }
+  }
+
+  private void validatePrescription(Integer idKlienta, Produkt product, Recepta prescription) {
+    if (prescription != null) {
+      if (!Objects.equals(prescription.getIdKlienta(), idKlienta))
+        throw new IllegalArgumentException("Recepta należy do innego klienta");
+      if (prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.NOWA
+          && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.ZWERYFIKOWANA)
+        throw new IllegalArgumentException("Recepta nie jest ważna");
+    }
+    if (product.getWymagaRecepty() && prescription == null)
+      throw new IllegalArgumentException("Wymagana recepta");
+  }
+
+  private List<SzczegolZamowienia> loadItems(Integer id) {
+    return jdbc.query(
+        "SELECT " + ITEM_COLUMNS + " FROM Szczegol_Zamowienia"
+            + " WHERE id_zamowienia=:id ORDER BY id_szczegolu",
+        new MapSqlParameterSource("id", id),
+        new BeanPropertyRowMapper<>(SzczegolZamowienia.class));
   }
 }
