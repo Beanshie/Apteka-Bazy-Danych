@@ -1,6 +1,8 @@
 -- chk_produkt_stan (V01) enforces stan_magazynowy >= 0.
 -- Business error codes consumed by OrderItemConstraintErrors:
 -- 30001: insufficient stock; 30002: order total exceeds DECIMAL(10,2).
+-- 30003: prescription customer mismatch; 30004: invalid prescription status;
+-- 30005: required prescription missing; 30006: prescription record missing.
 -- Existing items have already reserved stock; do not replay their reservations.
 -- Deploy with the service changes while application writes are stopped:
 -- older service code would apply the stock changes a second time.
@@ -11,10 +13,42 @@ CREATE TRIGGER szczegol_zamowienia_before_insert
 BEFORE INSERT ON Szczegol_Zamowienia
 FOR EACH ROW
 BEGIN
+    DECLARE order_customer INT;
+    DECLARE product_price DECIMAL(10,2);
+    DECLARE requires_prescription BOOLEAN;
+    DECLARE prescription_customer INT;
+    DECLARE prescription_status VARCHAR(20);
+    DECLARE missing_reference BOOLEAN DEFAULT FALSE;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET missing_reference = TRUE;
+
+    -- Keep the validation inputs stable until the item transaction finishes.
+    -- Only lock the referenced rows, in order/product/prescription order.
+    SELECT id_klienta INTO order_customer
+    FROM Zamowienie WHERE id_zamowienia = NEW.id_zamowienia FOR UPDATE;
+    SELECT cena, wymaga_recepty INTO product_price, requires_prescription
+    FROM Produkt WHERE id_produktu = NEW.id_produktu FOR UPDATE;
+
     IF NEW.cena_jednostkowa IS NULL THEN
-        SET NEW.cena_jednostkowa = (
-            SELECT cena FROM Produkt WHERE id_produktu = NEW.id_produktu
-        );
+        SET NEW.cena_jednostkowa = product_price;
+    END IF;
+
+    -- Missing orders/products are still rejected by the existing FK/NOT NULL constraints.
+    IF NOT missing_reference THEN
+        IF NEW.id_recepty IS NOT NULL THEN
+            SELECT id_klienta, status_recepty INTO prescription_customer, prescription_status
+            FROM Recepta WHERE id_recepty = NEW.id_recepty FOR UPDATE;
+            IF missing_reference THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30006, MESSAGE_TEXT = 'Nie znaleziono rekordu';
+            END IF;
+            IF prescription_customer <> order_customer THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30003, MESSAGE_TEXT = 'Recepta należy do innego klienta';
+            END IF;
+            IF prescription_status NOT IN ('NOWA', 'ZWERYFIKOWANA') THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30004, MESSAGE_TEXT = 'Recepta nie jest ważna';
+            END IF;
+        ELSEIF requires_prescription THEN
+            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30005, MESSAGE_TEXT = 'Wymagana recepta';
+        END IF;
     END IF;
 END//
 

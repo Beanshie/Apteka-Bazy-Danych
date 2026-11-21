@@ -40,12 +40,23 @@ class SzczegolZamowieniaTriggersTest {
   }
 
   private int insert(int order, int product, int quantity, BigDecimal price) {
+    return insert(order, product, quantity, price, null);
+  }
+
+  private int insert(int order, int product, int quantity, BigDecimal price, Integer prescription) {
     jdbc.update(
-        "INSERT INTO Szczegol_Zamowienia (id_zamowienia,id_produktu,ilosc,cena_jednostkowa)"
-            + " VALUES (?,?,?,?)", order, product, quantity, price);
+        "INSERT INTO Szczegol_Zamowienia (id_zamowienia,id_produktu,ilosc,cena_jednostkowa,id_recepty)"
+            + " VALUES (?,?,?,?,?)", order, product, quantity, price, prescription);
     return jdbc.queryForObject(
         "SELECT id_szczegolu FROM Szczegol_Zamowienia WHERE id_zamowienia=? AND id_produktu=?",
         Integer.class, order, product);
+  }
+
+  private int prescription(int customer, String status) {
+    return jdbc.queryForObject(
+        "INSERT INTO Recepta (id_klienta,kod_recepty,pesel_pacjenta,status_recepty)"
+            + " VALUES (?,'test-rx','80011501234',?) RETURNING id_recepty",
+        Integer.class, customer, status);
   }
 
   private int stock(int product) {
@@ -87,6 +98,9 @@ class SzczegolZamowieniaTriggersTest {
     assertTotal(1, "47.00");
     // V02 defines available stock; installing V03 must not deduct historical items again.
     assertEquals(150, stock(1));
+    // A historical fulfilled prescription remains attached to its original item.
+    assertEquals(1, jdbc.queryForObject(
+        "SELECT id_recepty FROM Szczegol_Zamowienia WHERE id_szczegolu=3", Integer.class));
   }
 
   @Test
@@ -102,6 +116,58 @@ class SzczegolZamowieniaTriggersTest {
     assertEquals(firstStock - 2, stock(1));
     assertEquals(secondStock - 3, stock(2));
     assertTotal(order, price.multiply(BigDecimal.valueOf(2)).add(new BigDecimal("3.69")).toPlainString());
+  }
+
+  @Test
+  void newAndVerifiedPrescriptionsAllowRequiredAndOptionalPrescriptionsIncludingCancelledOrders() {
+    for (boolean cancelled : new boolean[] {false, true}) {
+      for (String status : List.of("NOWA", "ZWERYFIKOWANA")) {
+        int order = order(cancelled);
+        int prescription = prescription(1, status);
+        int requiredStock = stock(3), optionalStock = stock(1);
+        int line = insert(order, 3, 2, null, prescription);
+        insert(order, 1, 1, null, prescription);
+        assertEquals(prescription, jdbc.queryForObject(
+            "SELECT id_recepty FROM Szczegol_Zamowienia WHERE id_szczegolu=?", Integer.class, line));
+        assertEquals(new BigDecimal("34.20"), jdbc.queryForObject(
+            "SELECT cena_jednostkowa FROM Szczegol_Zamowienia WHERE id_szczegolu=?",
+            BigDecimal.class, line));
+        assertEquals(requiredStock - (cancelled ? 0 : 2), stock(3));
+        assertEquals(optionalStock - (cancelled ? 0 : 1), stock(1));
+        assertTotal(order, "80.90");
+      }
+    }
+  }
+
+  @Test
+  void invalidPrescriptionsRejectRequiredAndOptionalPrescriptionsIncludingCancelledOrders() {
+    int otherCustomer = prescription(2, "ZWERYFIKOWANA");
+    int fulfilled = prescription(1, "ZREALIZOWANA");
+    int rejected = prescription(1, "ODRZUCONA");
+    for (boolean cancelled : new boolean[] {false, true}) {
+      int order = order(cancelled);
+      assertRejected(30005, () -> insert(order, 3, 1, null));
+      for (int product : new int[] {1, 3}) {
+        assertRejected(30003, () -> insert(order, product, 1, null, otherCustomer));
+        assertRejected(30004, () -> insert(order, product, 1, null, fulfilled));
+        assertRejected(30004, () -> insert(order, product, 1, null, rejected));
+        assertRejected(30006, () -> insert(order, product, 1, null, Integer.MAX_VALUE));
+      }
+    }
+  }
+
+  @Test
+  void invalidPrescriptionInMultiRowInsertRollsBackEarlierValidItem() {
+    int order = order(false);
+    int otherCustomer = prescription(2, "NOWA");
+    assertRejected(30003, () -> jdbc.update(
+        "INSERT INTO Szczegol_Zamowienia"
+            + " (id_zamowienia,id_produktu,ilosc,cena_jednostkowa,id_recepty)"
+            + " VALUES (?,1,1,NULL,NULL),(?,3,1,NULL,?)", order, order, otherCustomer));
+    assertRejected(30005, () -> jdbc.update(
+        "INSERT INTO Szczegol_Zamowienia"
+            + " (id_zamowienia,id_produktu,ilosc,cena_jednostkowa,id_recepty)"
+            + " VALUES (?,1,1,NULL,NULL),(?,3,1,NULL,NULL)", order, order));
   }
 
   @Test

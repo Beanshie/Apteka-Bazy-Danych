@@ -13,6 +13,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.*;
 import org.testcontainers.mariadb.MariaDBContainer;
 import pk.bd.apteka.dto.*;
@@ -34,6 +36,7 @@ class SzczegolZamowieniaServiceTest {
   @Autowired ZamowienieService orders;
   @Autowired ReceptaService prescriptions;
   @Autowired JdbcTemplate jdbc;
+  @Autowired PlatformTransactionManager transactions;
 
   private Zamowienie newOrder() {
     return orders.create(
@@ -206,18 +209,27 @@ class SzczegolZamowieniaServiceTest {
     try {
       assertRejected(IllegalArgumentException.class, id, () -> items.create(null, id));
       assertRejected(IllegalArgumentException.class, id, () -> items.update(line, null, id));
-      assertRejected(
+      var missing = assertRejected(
           NoSuchElementException.class,
           id,
           () -> items.create(new SzczegolZamowieniaCreate(3).idRecepty(Integer.MAX_VALUE), id));
-      assertRejected(
+      assertEquals("Nie znaleziono rekordu", missing.getMessage());
+      assertInstanceOf(DataIntegrityViolationException.class, missing.getCause());
+      var required = assertRejected(
           IllegalArgumentException.class,
           id,
           () -> items.create(new SzczegolZamowieniaCreate(3), id));
-      assertRejected(
+      assertEquals("Wymagana recepta", required.getMessage());
+      var wrongCustomer = assertRejected(
           IllegalArgumentException.class,
           id,
           () -> items.create(new SzczegolZamowieniaCreate(3).idRecepty(2), id));
+      assertEquals("Recepta należy do innego klienta", wrongCustomer.getMessage());
+      var invalidId = assertRejected(
+          IllegalArgumentException.class,
+          id,
+          () -> items.create(new SzczegolZamowieniaCreate(3).idRecepty(0), id));
+      assertEquals("Niepoprawne ID", invalidId.getMessage());
     } finally {
       orders.delete(id);
     }
@@ -279,12 +291,59 @@ class SzczegolZamowieniaServiceTest {
           id,
           () -> items.update(
               line, new SzczegolZamowieniaUpdate().idProduktu(5).idRecepty(prescriptionId).ilosc(1), id));
-      assertRejected(
+      var fulfilled = assertRejected(
           IllegalArgumentException.class,
           id,
           () -> items.create(new SzczegolZamowieniaCreate(5).idRecepty(prescriptionId), id));
+      assertEquals("Recepta nie jest ważna", fulfilled.getMessage());
       items.delete(line, id);
       assertTotal(id);
+    } finally {
+      orders.delete(id);
+      prescriptions.delete(prescriptionId);
+    }
+  }
+
+  @Test
+  void createWaitsForPrescriptionStatusChangeAndRejectsTheCommittedInvalidStatus() throws Exception {
+    var prescription = prescriptions.create(new ReceptaCreate(1, "locked-rx", "80011501234"));
+    var order = newOrder();
+    int id = order.getIdZamowienia(), prescriptionId = prescription.getIdRecepty();
+    var before = state(id);
+    var changed = new CountDownLatch(1);
+    var commitStatus = new CountDownLatch(1);
+    try {
+      try (var executor = Executors.newFixedThreadPool(2)) {
+        var statusChange = executor.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+          jdbc.update("UPDATE Recepta SET status_recepty='ZREALIZOWANA' WHERE id_recepty=?", prescriptionId);
+          changed.countDown();
+          try {
+            if (!commitStatus.await(30, TimeUnit.SECONDS))
+              throw new IllegalStateException("Timed out waiting to commit prescription status");
+          } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(error);
+          }
+        }));
+        try {
+          assertTrue(changed.await(10, TimeUnit.SECONDS));
+          var attempted = new CountDownLatch(1);
+          var creation = executor.submit(() -> {
+            attempted.countDown();
+            return items.create(new SzczegolZamowieniaCreate(3).idRecepty(prescriptionId), id);
+          });
+          assertTrue(attempted.await(10, TimeUnit.SECONDS));
+          assertThrows(TimeoutException.class, () -> creation.get(250, TimeUnit.MILLISECONDS));
+          commitStatus.countDown();
+          statusChange.get(30, TimeUnit.SECONDS);
+          var failure = assertThrows(ExecutionException.class, () -> creation.get(30, TimeUnit.SECONDS));
+          var error = assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+          assertEquals("Recepta nie jest ważna", error.getMessage());
+          assertEquals(before, state(id));
+        } finally {
+          commitStatus.countDown();
+        }
+      }
     } finally {
       orders.delete(id);
       prescriptions.delete(prescriptionId);

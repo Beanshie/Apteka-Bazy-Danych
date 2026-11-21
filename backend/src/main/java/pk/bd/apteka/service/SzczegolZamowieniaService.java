@@ -48,7 +48,8 @@ public class SzczegolZamowieniaService {
   public SzczegolZamowienia create(SzczegolZamowieniaCreate value, Integer idZamowienia) {
     if (idZamowienia == null || idZamowienia < 1) throw new IllegalArgumentException("Niepoprawne ID");
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    var prescription = value.getIdRecepty() == null ? null : lockPrescription(value.getIdRecepty());
+    if (value.getIdRecepty() != null && value.getIdRecepty() < 1)
+      throw new IllegalArgumentException("Niepoprawne ID");
     Map<String, Object> parameters = new LinkedHashMap<>();
     parameters.put("id_produktu", value.getIdProduktu());
     parameters.put("id_recepty", value.getIdRecepty());
@@ -64,15 +65,7 @@ public class SzczegolZamowieniaService {
           key,
           new String[] {"id_szczegolu"});
       int id = Objects.requireNonNull(key.getKey()).intValue();
-      var item = get(id, idZamowienia);
-      var order =
-          jdbc.queryForObject(
-              "SELECT id_klienta,status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id",
-              new MapSqlParameterSource("id", idZamowienia),
-              new BeanPropertyRowMapper<>(Zamowienie.class));
-      var selectedProduct = produkt.get(value.getIdProduktu());
-      validatePrescription(order, selectedProduct, prescription, true);
-      return item;
+      return get(id, idZamowienia);
     } catch (DataIntegrityViolationException e) {
       throw OrderItemConstraintErrors.translateCreate(e);
     }

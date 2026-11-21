@@ -38,12 +38,19 @@ Check the current implementation, migrations, and tests when changing behavior.
 - Add new numbered Flyway migrations for database changes. Do not rewrite
   migrations already applied to a database or repair checksums to hide changes.
   Keep migrations compatible with MariaDB and the existing InnoDB constraints.
-- `V03__szczegol_zamowienia_triggers.sql` owns item price defaults, stock changes,
-  and order totals. Do not duplicate these updates in Java services.
+- `V03__szczegol_zamowienia_triggers.sql` owns item price defaults, creation-time
+  prescription validation, stock changes, and order totals. Item creation relies
+  on these checks inside the insert; preserve the existing Java validation of
+  item updates and full order replacement. Do not duplicate stock/total updates
+  in Java services.
 - On insert, a NULL `cena_jednostkowa` asks the BEFORE INSERT trigger to copy
   `Produkt.cena`; an explicitly supplied price is preserved. Avoid selecting from
   `Produkt` in an INSERT whose trigger also updates `Produkt`: MariaDB rejects
   that combination.
+- The BEFORE INSERT trigger locks the referenced order, product, and optional
+  prescription, in that order. Every supplied prescription must belong to the
+  order's customer and be NOWA or ZWERYFIKOWANA, including optional prescriptions
+  and cancelled-order inserts. Products requiring prescriptions must receive one.
 - Item triggers maintain totals and stock using atomic arithmetic updates.
   `chk_produkt_stan` in V01 enforces nonnegative stock. Cancelled (`ANULOWANE`)
   orders retain their totals but do not reserve stock.
@@ -61,9 +68,12 @@ Check the current implementation, migrations, and tests when changing behavior.
   concurrent mutations. A rejected mutation must leave items, totals, and stock
   unchanged.
 - Preserve the trigger error-code contract with `OrderItemConstraintErrors`:
-  `30001` means insufficient stock and `30002` means excessive order total. These
-  become `IllegalArgumentException` business errors (HTTP 400). Preserve the
-  separate handling of other integrity, missing-record, and database failures.
+  `30001` means insufficient stock, `30002` excessive order total, `30003` wrong
+  prescription customer, `30004` invalid prescription status, and `30005` a
+  required prescription missing. These become `IllegalArgumentException`
+  business errors (HTTP 400). Code `30006` means a referenced prescription does
+  not exist and becomes `NoSuchElementException` (HTTP 404). Preserve the separate
+  handling of other integrity and database failures.
 - Deploy changes that transfer responsibilities between services and triggers
   together, with application writes stopped during the transition.
 
