@@ -230,3 +230,22 @@ BEGIN
 END //
 DELIMITER ;
 
+
+-- ---------------- 10. Transakcje - Demonstracja COMMIT i ROLLBACK ----------------
+START TRANSACTION;
+
+UPDATE Produkt
+SET stan_magazynowy = stan_magazynowy + 50,
+    cena = 13.00
+WHERE id_produktu = 1;
+
+COMMIT;
+
+START TRANSACTION;
+
+UPDATE Zamowienie
+SET status_zamowienia = 'ANULOWANE'
+WHERE id_zamowienia = 4;
+
+ROLLBACK;
+
