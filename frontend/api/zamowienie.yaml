@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: API Apteki — Zamowienie
   version: 2.0.0
-  description: Zamówienia tworzone wraz z pozycjami. Suma i ceny pozycji są wyliczane
-    przez backend.
+  description: Nagłówki zamówień. Pozycje są zarządzane przez osobne endpointy;
+    suma jest utrzymywana przez backend.
 servers:
 - url: /api/v1
 paths:
@@ -43,7 +43,6 @@ paths:
         required: false
         schema:
           type: string
-          maxLength: 20
           enum: &id001
           - NOWE
           - OPLACONE
@@ -141,8 +140,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ZamowienieUpdate'
-      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
-        lub ustawione na null są czyszczone.
+      description: Zastępuje edytowalne pola nagłówka, zachowując istniejące pozycje,
+        ich identyfikatory i ceny. Zmiana statusu dostosowuje rezerwację magazynową.
     delete:
       tags:
       - Zamowienie
@@ -156,14 +155,12 @@ paths:
           description: Brak autoryzacji.
         '500':
           description: Wewnętrzny błąd serwera.
-        '404':
-          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
         '409':
           description: Konflikt unikalności lub operacja zablokowana przez powiązane
             rekordy.
         '204':
-          description: Usunięto zasób.
-      description: Usuwa zamówienie, jego pozycje i płatność kaskadowo.
+          description: Usunięto zasób lub zasób już nie istnieje.
+      description: Usuwa zamówienie wraz z pozycjami i płatnością, zwalniając rezerwację magazynową.
 components:
   schemas:
     Zamowienie:
@@ -194,7 +191,6 @@ components:
           readOnly: true
         status_zamowienia:
           type: string
-          maxLength: 20
           default: NOWE
           enum: *id001
         suma_calkowita:
@@ -205,10 +201,6 @@ components:
           example: 12.5
           default: 0.0
           readOnly: true
-        pozycje:
-          type: array
-          items:
-            $ref: szczegol_zamowienia.yaml#/components/schemas/SzczegolZamowienia
       required:
       - id_zamowienia
       - id_klienta
@@ -216,7 +208,6 @@ components:
       - data_zamowienia
       - status_zamowienia
       - suma_calkowita
-      - pozycje
     ZamowienieCreate:
       type: object
       properties:
@@ -232,7 +223,6 @@ components:
           example: 1
         status_zamowienia:
           type: string
-          maxLength: 20
           default: NOWE
           enum:
           - NOWE
@@ -241,18 +231,9 @@ components:
           - WYSLANE
           - ZREALIZOWANE
           - ANULOWANE
-        pozycje:
-          type: array
-          minItems: 1
-          items:
-            $ref: szczegol_zamowienia.yaml#/components/schemas/SzczegolZamowieniaCreate
-          description: Produkty nie mogą się powtarzać. Cena jest pobierana z katalogu;
-            backend oblicza sumę. Dla produktu wymagającego recepty należy przekazać
-            id_recepty.
       required:
       - id_klienta
       - id_adresu
-      - pozycje
     ZamowienieUpdate:
       type: object
       properties:
@@ -268,7 +249,6 @@ components:
           example: 1
         status_zamowienia:
           type: string
-          maxLength: 20
           enum:
           - NOWE
           - OPLACONE
@@ -276,15 +256,7 @@ components:
           - WYSLANE
           - ZREALIZOWANE
           - ANULOWANE
-        pozycje:
-          type: array
-          minItems: 1
-          items:
-            $ref: szczegol_zamowienia.yaml#/components/schemas/SzczegolZamowieniaCreate
-          description: Pełna lista zastępuje wszystkie pozycje; backend zapisuje aktualne
-            ceny produktów i ponownie oblicza sumę.
       required:
       - id_klienta
       - id_adresu
       - status_zamowienia
-      - pozycje

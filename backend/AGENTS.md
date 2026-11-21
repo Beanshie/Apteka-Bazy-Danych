@@ -40,7 +40,7 @@ Check the current implementation, migrations, and tests when changing behavior.
   Keep migrations compatible with MariaDB and the existing InnoDB constraints.
 - `V03__szczegol_zamowienia_triggers.sql` owns item price defaults, insert/update
   prescription validation, stock changes, order totals, and header address
-  ownership. Item mutations and full order creation/replacement rely on these
+  ownership. Item and order mutations rely on these
   checks inside their SQL statements. Do not duplicate database validation or
   stock/total updates in Java services.
 - Header BEFORE INSERT/UPDATE triggers validate that the address belongs to the
@@ -72,33 +72,37 @@ Check the current implementation, migrations, and tests when changing behavior.
   order/product locking. Only when no item is deleted does it query whether the
   parent exists: missing parents return HTTP 404, while absent items under an
   existing parent return HTTP 204. Successful deletion needs no follow-up query.
-- Preserve full order replacement as deletion of old items, update of the header,
-  then insertion of replacement items. This uses the old status for stock release
-  and the new status for reservation, generates fresh item IDs, refreshes prices,
-  and revalidates prescriptions. A temporary stock return exceeding the INT limit
-  rejects the replacement and must roll back completely.
-- Explicitly delete items before deleting their parent order. Foreign-key
-  cascades do not execute the item-delete trigger. Header-only status changes
-  through raw SQL do not adjust reservations; service status changes use the
-  replacement flow.
-- Full order replacement/deletion retains a targeted parent-order lock across
-  its multiple statements, preventing concurrent additions between child deletion
-  and header mutation. Creation needs no Java row locks. Do not lock the product
-  catalog or read products/prescriptions/customers in Java before writing items.
-- Full order creation/replacement inserts each item through
-  `SzczegolZamowieniaService.create`, joining the enclosing transaction and keeping
-  its post-insert `get()`. The order service discards these item responses and
-  returns the final order through its own `get()`. Missing products, duplicate
-  items, and invalid quantities use item creation errors (HTTP 400), including
-  during replacement. Header constraint failures and stock-restoration overflow
-  during replacement retain HTTP 409.
+- Orders expose header fields only. Create an empty header (total zero), then use
+  `/zamowienia/{id_zamowienia}/pozycje` for item CRUD. Order get/list responses do
+  not embed items. Header updates preserve item IDs, quantities, price snapshots,
+  and totals; do not delete/reinsert items or refresh their prices on header edits.
+  Separate header and item requests have separate transactions: a failed item
+  request leaves the previously created header intact.
+- Header status transitions across `ANULOWANE` adjust reservations through the
+  AFTER UPDATE trigger, using atomic arithmetic on referenced products in ascending
+  ID order. Cancellation restores stock; reactivation reserves it. Repeated status
+  updates and transitions between active statuses do not change reservations.
+  Stock-restoration INT overflow rejects and rolls back the entire header change.
+- The header BEFORE UPDATE trigger validates prescription ownership on customer
+  changes. Reactivation also validates prescription requirements and NOWA or
+  ZWERYFIKOWANA status. Ordinary header edits and cancellation can retain fulfilled
+  or rejected prescriptions. Header item checks and stock adjustments must skip
+  total-only updates issued by item triggers, avoiding recursive item-table reads.
+- Delete an order with a single header DELETE. Its BEFORE DELETE trigger restores
+  active-order stock using atomic arithmetic in ascending product ID order, then
+  foreign-key cascades remove items and payments. Cancelled orders release no
+  stock. Cascades do not execute the item-delete trigger; keep that trigger for
+  standalone item deletion. Stock overflow rolls back the entire deletion.
+  Order creation needs no Java row locks; header UPDATE/DELETE acquire their own
+  database row locks, so deletion needs no preliminary lookup or explicit lock.
+  Do not lock the product catalog or duplicate trigger validation in Java.
 - Keep multi-step order/item mutations transactional, including prescription
   ownership and status checks. Review existing lock order before changing
   concurrent mutations. A rejected mutation must leave items, totals, and stock
   unchanged.
 - Item UPDATE/DELETE statements lock their target rows before their triggers lock
-  the parent order; full order replacement locks the parent first. Concurrent
-  mutations/replacements can therefore surface database deadlocks. Verify committed
+  the parent order; header status changes and order deletion lock the parent
+  first. Concurrent mutations can therefore surface database deadlocks. Verify committed
   results and rollback of rejected operations; no automatic retry is currently
   provided.
 - Preserve the trigger error-code contract with `OrderItemConstraintErrors`:
@@ -123,7 +127,7 @@ Check the current implementation, migrations, and tests when changing behavior.
 For changes affecting orders, item mutations, or triggers, run:
 
 ```sh
-./mvnw -Dtest=SzczegolZamowieniaTriggersTest,SzczegolZamowieniaServiceTest,ZamowienieServiceTest,AptekaApplicationTests test
+./mvnw -Dtest=SzczegolZamowieniaTriggersTest,SzczegolZamowieniaServiceTest,ZamowienieServiceTest,AptekaApplicationTests,ZamowienieControllerTest test
 ```
 
 Integration tests use isolated MariaDB 11.4 Testcontainers databases initialized

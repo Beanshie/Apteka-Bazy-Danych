@@ -76,13 +76,14 @@ class SzczegolZamowieniaTriggersTest {
   }
 
   private record State(List<Map<String, Object>> orders, List<Map<String, Object>> items,
-                       List<Map<String, Object>> products) {}
+                       List<Map<String, Object>> products, List<Map<String, Object>> payments) {}
 
   private State state() {
     return new State(
         jdbc.queryForList("SELECT * FROM Zamowienie ORDER BY id_zamowienia"),
         jdbc.queryForList("SELECT * FROM Szczegol_Zamowienia ORDER BY id_szczegolu"),
-        jdbc.queryForList("SELECT * FROM Produkt ORDER BY id_produktu"));
+        jdbc.queryForList("SELECT * FROM Produkt ORDER BY id_produktu"),
+        jdbc.queryForList("SELECT * FROM Platnosc ORDER BY id_platnosci"));
   }
 
   private void assertRejected(Integer businessCode, Runnable mutation) {
@@ -101,7 +102,7 @@ class SzczegolZamowieniaTriggersTest {
         "SELECT COUNT(*) FROM information_schema.TRIGGERS"
             + " WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='Szczegol_Zamowienia'",
         Integer.class));
-    assertEquals(2, jdbc.queryForObject(
+    assertEquals(4, jdbc.queryForObject(
         "SELECT COUNT(*) FROM information_schema.TRIGGERS"
             + " WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='Zamowienie'",
         Integer.class));
@@ -111,6 +112,113 @@ class SzczegolZamowieniaTriggersTest {
     // A historical fulfilled prescription remains attached to its original item.
     assertEquals(1, jdbc.queryForObject(
         "SELECT id_recepty FROM Szczegol_Zamowienia WHERE id_szczegolu=3", Integer.class));
+  }
+
+  @Test
+  void headerDeletionRestoresOnlyActiveStockAndCascadesItemsAndPaymentsExactlyOnce() {
+    for (String status : List.of("NOWE", "OPLACONE", "W_REALIZACJI", "WYSLANE", "ZREALIZOWANE", "ANULOWANE")) {
+      int firstStock = stock(1), secondStock = stock(2);
+      int order = order(status.equals("ANULOWANE"));
+      jdbc.update("UPDATE Zamowienie SET status_zamowienia=? WHERE id_zamowienia=?", status, order);
+      insert(order, 1, 2, BigDecimal.ONE);
+      insert(order, 2, 3, BigDecimal.TEN);
+      jdbc.update("INSERT INTO Platnosc(id_zamowienia,metoda_platnosci) VALUES (?,'KARTA')", order);
+
+      assertEquals(1, jdbc.update("DELETE FROM Zamowienie WHERE id_zamowienia=?", order));
+      assertEquals(0, jdbc.queryForObject(
+          "SELECT COUNT(*) FROM Zamowienie WHERE id_zamowienia=?", Integer.class, order));
+      assertEquals(0, jdbc.queryForObject(
+          "SELECT COUNT(*) FROM Szczegol_Zamowienia WHERE id_zamowienia=?", Integer.class, order));
+      assertEquals(0, jdbc.queryForObject(
+          "SELECT COUNT(*) FROM Platnosc WHERE id_zamowienia=?", Integer.class, order));
+      assertEquals(firstStock, stock(1));
+      assertEquals(secondStock, stock(2));
+      var after = state();
+      assertEquals(0, jdbc.update("DELETE FROM Zamowienie WHERE id_zamowienia=?", order));
+      assertEquals(after, state());
+    }
+  }
+
+  @Test
+  void emptyHeaderDeletionDoesNotChangeStock() {
+    for (boolean cancelled : new boolean[] {false, true}) {
+      int order = order(cancelled);
+      var products = jdbc.queryForList("SELECT * FROM Produkt ORDER BY id_produktu");
+      assertEquals(1, jdbc.update("DELETE FROM Zamowienie WHERE id_zamowienia=?", order));
+      assertEquals(products, jdbc.queryForList("SELECT * FROM Produkt ORDER BY id_produktu"));
+    }
+  }
+
+  @Test
+  void headerDeletionOverflowRollsBackEarlierStockChangesAndAllCascades() {
+    int order = order(false);
+    insert(order, 1, 2, BigDecimal.ONE);
+    insert(order, 2, 3, BigDecimal.TEN);
+    jdbc.update("INSERT INTO Platnosc(id_zamowienia,metoda_platnosci) VALUES (?,'KARTA')", order);
+    jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=2", Integer.MAX_VALUE);
+    assertRejected(1264, () -> jdbc.update("DELETE FROM Zamowienie WHERE id_zamowienia=?", order));
+  }
+
+  @Test
+  void headerStatusTransitionsAdjustStockWithoutReplacingItemsOrTotals() {
+    int order = order(true);
+    int firstStock = stock(1), secondStock = stock(2);
+    insert(order, 1, 2, BigDecimal.ONE);
+    insert(order, 2, 3, BigDecimal.TEN);
+    var before = jdbc.queryForList("SELECT * FROM Szczegol_Zamowienia WHERE id_zamowienia=?", order);
+    for (String status : List.of("NOWE", "OPLACONE", "ANULOWANE", "ANULOWANE", "WYSLANE")) {
+      jdbc.update("UPDATE Zamowienie SET status_zamowienia=? WHERE id_zamowienia=?", status, order);
+      assertEquals(firstStock - (status.equals("ANULOWANE") ? 0 : 2), stock(1));
+      assertEquals(secondStock - (status.equals("ANULOWANE") ? 0 : 3), stock(2));
+      assertEquals(before, jdbc.queryForList("SELECT * FROM Szczegol_Zamowienia WHERE id_zamowienia=?", order));
+      assertTotal(order, "32.00");
+    }
+    int empty = order(true);
+    jdbc.update("UPDATE Zamowienie SET status_zamowienia='NOWE' WHERE id_zamowienia=?", empty);
+    assertTotal(empty, "0.00");
+  }
+
+  @Test
+  void headerStockFailuresRollBackEarlierProductAdjustmentsAndStatus() {
+    int order = order(true);
+    insert(order, 1, 1, BigDecimal.ONE);
+    insert(order, 2, 1, BigDecimal.ONE);
+    int secondStock = stock(2);
+    jdbc.update("UPDATE Produkt SET stan_magazynowy=0 WHERE id_produktu=2");
+    assertRejected(30001, () -> jdbc.update(
+        "UPDATE Zamowienie SET status_zamowienia='NOWE' WHERE id_zamowienia=?", order));
+    jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=2", secondStock);
+    jdbc.update("UPDATE Zamowienie SET status_zamowienia='NOWE' WHERE id_zamowienia=?", order);
+    jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=2", Integer.MAX_VALUE);
+    assertRejected(null, () -> jdbc.update(
+        "UPDATE Zamowienie SET status_zamowienia='ANULOWANE' WHERE id_zamowienia=?", order));
+  }
+
+  @Test
+  void headerPrescriptionValidationChecksCustomerChangesAndReactivationOnly() {
+    int order = order(false);
+    int rx = prescription(1, "NOWA");
+    insert(order, 3, 1, BigDecimal.ONE, rx);
+    jdbc.update("UPDATE Recepta SET status_recepty='ZREALIZOWANA' WHERE id_recepty=?", rx);
+    jdbc.update("UPDATE Zamowienie SET id_adresu=5,status_zamowienia='OPLACONE' WHERE id_zamowienia=?", order);
+    assertRejected(30003, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_klienta=2,id_adresu=2 WHERE id_zamowienia=?", order));
+    jdbc.update("UPDATE Zamowienie SET status_zamowienia='ANULOWANE' WHERE id_zamowienia=?", order);
+    for (String status : List.of("ZREALIZOWANA", "ODRZUCONA")) {
+      jdbc.update("UPDATE Recepta SET status_recepty=? WHERE id_recepty=?", status, rx);
+      assertRejected(30004, () -> jdbc.update(
+          "UPDATE Zamowienie SET status_zamowienia='NOWE' WHERE id_zamowienia=?", order));
+    }
+    jdbc.update("UPDATE Recepta SET id_klienta=2 WHERE id_recepty=?", rx);
+    // Ownership matches the new customer; status is not revalidated on an ordinary header edit.
+    jdbc.update("UPDATE Zamowienie SET id_klienta=2,id_adresu=2 WHERE id_zamowienia=?", order);
+    jdbc.update("UPDATE Recepta SET status_recepty='ZWERYFIKOWANA' WHERE id_recepty=?", rx);
+    jdbc.update("UPDATE Zamowienie SET status_zamowienia='NOWE' WHERE id_zamowienia=?", order);
+    assertTotal(order, "1.00");
+    jdbc.update("UPDATE Zamowienie SET status_zamowienia='ANULOWANE' WHERE id_zamowienia=?", order);
+    jdbc.update("DELETE FROM Recepta WHERE id_recepty=?", rx);
+    assertRejected(30005, () -> jdbc.update(
+        "UPDATE Zamowienie SET status_zamowienia='NOWE' WHERE id_zamowienia=?", order));
   }
 
   @Test

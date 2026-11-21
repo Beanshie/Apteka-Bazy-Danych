@@ -30,8 +30,11 @@ The version 2.0.0 contracts use `/api/v1`, database field names, `/produkty`
 instead of `/leki`, and `/zamowienia/{id_zamowienia}/pozycje` for order items.
 Each collection supports GET/POST; each individual resource supports GET/PUT/DELETE.
 PUT replaces all writable fields. Required fields must be supplied; nullable
-fields are cleared when omitted or null. A null or omitted password retains its hash. POST order requests
-include items; the backend calculates price snapshots and order totals. Payments
+fields are cleared when omitted or null. A null or omitted password retains its hash.
+Order requests and responses contain header fields only. POST creates an empty
+order with total zero; add and fetch items through the nested item endpoints.
+Each request is a separate transaction, so a failed item request leaves its order
+intact. PUT changes header fields while preserving item IDs and price snapshots. Payments
 and customer addresses have separate resources. Passwords are write-only.
 
 These are breaking contract changes. Frontend clients need adaptation to the new API.
@@ -48,19 +51,28 @@ Each resource has a JDBC service with only its API operations: create, get, list
 update, and delete. SQL, validation, parameter binding, and business rules are inline
 in those operations. Ordinary reads reuse get(); there are no CRUD or business
 helper methods. Services throw HTTP-independent exceptions. Controllers own HTTP
-responses. Order and item mutations each contain the required stock coordination,
-locking, ownership checks, snapshots, and total calculations.
+responses. V03 database triggers own stock coordination, ownership checks,
+price snapshots, and total calculations for order and item mutations.
 Updates replace the full writable object; nullable fields may be cleared.
 Null or omitted passwords preserve the existing hash. Account passwords are hashed with BCrypt and never included in responses.
 MariaDB sessions and API timestamp conversions use UTC.
 
-Orders reserve stock when created. Item edits adjust stock and recalculate totals;
-new products receive current price snapshots. Cancellation/deletion releases stock;
-reactivation reserves it again. Prescription-required items accept customer-owned
-NOWA or ZWERYFIKOWANA prescriptions. Payment and order statuses stay independent.
-Order mutations lock the parent order and product rows in ascending order. Currently
-all product rows are locked during an order mutation, favoring correctness over
-parallel order throughput. Authentication and payment-provider integration are not included.
+Creating an order header does not reserve stock. Adding items reserves stock for
+active orders and calculates totals using catalog price snapshots. Cancellation
+releases stock while retaining items and totals; reactivation reserves it again.
+Header status changes through either the service or direct SQL follow these rules.
+Only transitions across ANULOWANE affect reservations. Deletion uses a single
+header DELETE: the order BEFORE DELETE trigger restores active-order stock, and
+foreign-key cascades remove items and payments. Cancelled orders release no stock.
+Stock-restoration overflow rolls back the entire deletion.
+Prescription-required items accept customer-owned NOWA or ZWERYFIKOWANA
+prescriptions. Reactivation revalidates these rules; ordinary header edits and
+cancellation can retain fulfilled or rejected prescriptions. Changing the customer
+checks ownership of attached prescriptions. Payment and order statuses stay independent.
+Triggers lock referenced rows rather than the entire product catalog. Header and
+item operations can acquire row locks in different orders; deadlocks are surfaced
+through existing database error handling, without automatic retries. Authentication
+and payment-provider integration are not included.
 
 Run `mvn test` for service/controller tests. MariaDB integration tests run in an
 isolated Testcontainers database using Flyway; they are skipped if Docker is unavailable.

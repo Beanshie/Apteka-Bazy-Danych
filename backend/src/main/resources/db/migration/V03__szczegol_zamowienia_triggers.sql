@@ -43,6 +43,7 @@ BEGIN
     DECLARE existing_customer INT;
     DECLARE address_customer INT;
     DECLARE missing_reference BOOLEAN DEFAULT FALSE;
+    DECLARE reactivating BOOLEAN;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET missing_reference = TRUE;
 
     -- Item triggers update totals; only changed ownership/address needs validation.
@@ -59,6 +60,116 @@ BEGIN
                 SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30008, MESSAGE_TEXT = 'Adres należy do innego klienta';
             END IF;
         END IF;
+    END IF;
+
+    SET reactivating = OLD.status_zamowienia = 'ANULOWANE'
+        AND NEW.status_zamowienia <> 'ANULOWANE';
+    -- Total-only updates from item triggers must not read their invoking item table.
+    IF (NOT (NEW.id_klienta <=> OLD.id_klienta) OR reactivating)
+        AND NEW.id_klienta IS NOT NULL
+        AND (existing_customer IS NOT NULL OR NEW.id_klienta <=> OLD.id_klienta) THEN
+        BEGIN
+            DECLARE finished BOOLEAN DEFAULT FALSE;
+            DECLARE product_id INT;
+            DECLARE prescription_id INT;
+            DECLARE item_cursor CURSOR FOR
+                SELECT id_produktu, id_recepty FROM Szczegol_Zamowienia
+                WHERE id_zamowienia = NEW.id_zamowienia ORDER BY id_produktu FOR UPDATE;
+            DECLARE CONTINUE HANDLER FOR NOT FOUND SET finished = TRUE;
+
+            OPEN item_cursor;
+            validate_items: LOOP
+                FETCH item_cursor INTO product_id, prescription_id;
+                IF finished THEN LEAVE validate_items; END IF;
+                BEGIN
+                    DECLARE requires_prescription BOOLEAN;
+                    DECLARE prescription_customer INT;
+                    DECLARE prescription_status VARCHAR(20);
+                    DECLARE missing_prescription BOOLEAN DEFAULT FALSE;
+                    DECLARE CONTINUE HANDLER FOR NOT FOUND SET missing_prescription = TRUE;
+
+                    IF reactivating THEN
+                        SELECT wymaga_recepty INTO requires_prescription FROM Produkt
+                        WHERE id_produktu = product_id FOR UPDATE;
+                    END IF;
+                    IF prescription_id IS NOT NULL THEN
+                        SELECT id_klienta, status_recepty INTO prescription_customer, prescription_status
+                        FROM Recepta WHERE id_recepty = prescription_id FOR UPDATE;
+                        IF missing_prescription THEN
+                            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30006, MESSAGE_TEXT = 'Nie znaleziono rekordu';
+                        END IF;
+                        IF prescription_customer <> NEW.id_klienta THEN
+                            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30003, MESSAGE_TEXT = 'Recepta należy do innego klienta';
+                        END IF;
+                        IF reactivating AND prescription_status NOT IN ('NOWA', 'ZWERYFIKOWANA') THEN
+                            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30004, MESSAGE_TEXT = 'Recepta nie jest ważna';
+                        END IF;
+                    ELSEIF reactivating AND requires_prescription THEN
+                        SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30005, MESSAGE_TEXT = 'Wymagana recepta';
+                    END IF;
+                END;
+            END LOOP;
+            CLOSE item_cursor;
+        END;
+    END IF;
+END//
+
+CREATE TRIGGER zamowienie_after_update
+AFTER UPDATE ON Zamowienie
+FOR EACH ROW
+BEGIN
+    -- A status boundary changes reservations without replacing items or prices.
+    IF (OLD.status_zamowienia = 'ANULOWANE') <> (NEW.status_zamowienia = 'ANULOWANE') THEN
+        BEGIN
+            DECLARE finished BOOLEAN DEFAULT FALSE;
+            DECLARE product_id INT;
+            DECLARE quantity INT;
+            DECLARE item_cursor CURSOR FOR
+                SELECT id_produktu, ilosc FROM Szczegol_Zamowienia
+                WHERE id_zamowienia = NEW.id_zamowienia ORDER BY id_produktu FOR UPDATE;
+            DECLARE CONTINUE HANDLER FOR NOT FOUND SET finished = TRUE;
+            DECLARE EXIT HANDLER FOR 4025
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30001, MESSAGE_TEXT = 'Brak produktu na stanie';
+
+            OPEN item_cursor;
+            adjust_stock: LOOP
+                FETCH item_cursor INTO product_id, quantity;
+                IF finished THEN LEAVE adjust_stock; END IF;
+                UPDATE Produkt
+                SET stan_magazynowy = stan_magazynowy
+                    + IF(NEW.status_zamowienia = 'ANULOWANE', quantity, -quantity)
+                WHERE id_produktu = product_id;
+            END LOOP;
+            CLOSE item_cursor;
+        END;
+    END IF;
+END//
+
+CREATE TRIGGER zamowienie_before_delete
+BEFORE DELETE ON Zamowienie
+FOR EACH ROW
+BEGIN
+    -- Cascades skip item triggers; restore reservations while items still exist.
+    IF OLD.status_zamowienia <> 'ANULOWANE' THEN
+        BEGIN
+            DECLARE finished BOOLEAN DEFAULT FALSE;
+            DECLARE product_id INT;
+            DECLARE quantity INT;
+            DECLARE item_cursor CURSOR FOR
+                SELECT id_produktu, ilosc FROM Szczegol_Zamowienia
+                WHERE id_zamowienia = OLD.id_zamowienia ORDER BY id_produktu FOR UPDATE;
+            DECLARE CONTINUE HANDLER FOR NOT FOUND SET finished = TRUE;
+
+            OPEN item_cursor;
+            restore_stock: LOOP
+                FETCH item_cursor INTO product_id, quantity;
+                IF finished THEN LEAVE restore_stock; END IF;
+                UPDATE Produkt
+                SET stan_magazynowy = stan_magazynowy + quantity
+                WHERE id_produktu = product_id;
+            END LOOP;
+            CLOSE item_cursor;
+        END;
     END IF;
 END//
 

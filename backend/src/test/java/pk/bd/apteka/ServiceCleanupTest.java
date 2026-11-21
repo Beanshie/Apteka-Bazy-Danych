@@ -56,7 +56,7 @@ class ServiceCleanupTest {
     product = products.create(
         new ProduktCreate(1, 1, "Cleanup product", BigDecimal.TEN).stanMagazynowy(10));
     prescription = prescriptions.create(new ReceptaCreate(1, "cleanup", "12345678901"));
-    order = orders.create(new ZamowienieCreate(1, 1, List.of(new SzczegolZamowieniaCreate(1))));
+    order = orders.create(new ZamowienieCreate(1, 1));
     payment = payments.create(
         new PlatnoscCreate(order.getIdZamowienia(), "KARTA").statusPlatnosci(null));
   }
@@ -186,7 +186,7 @@ class ServiceCleanupTest {
   @Test
   void paymentCanMoveToAnotherOrderButCannotDuplicateAnExistingPayment() {
     var otherOrder = orders.create(
-        new ZamowienieCreate(1, 1, List.of(new SzczegolZamowieniaCreate(1))));
+        new ZamowienieCreate(1, 1));
     try {
       var moved = payments.update(payment.getIdPlatnosci(),
           paymentUpdate().idZamowienia(otherOrder.getIdZamowienia()));
@@ -248,8 +248,7 @@ class ServiceCleanupTest {
         () -> prescriptions.create(new ReceptaCreate(Integer.MAX_VALUE, "missing", "12345678901")),
         () -> payments.create(new PlatnoscCreate(Integer.MAX_VALUE, "KARTA")),
         () -> payments.create(new PlatnoscCreate(order.getIdZamowienia(), "KARTA")),
-        () -> orders.create(new ZamowienieCreate(1, 1,
-            List.of(new SzczegolZamowieniaCreate(1), new SzczegolZamowieniaCreate(1)))),
+        () -> orders.create(new ZamowienieCreate(Integer.MAX_VALUE, 1)),
         () -> items.create(new SzczegolZamowieniaCreate(2).ilosc(0), order.getIdZamowienia()));
     for (var create : invalidCreates) {
       var before = databaseState();

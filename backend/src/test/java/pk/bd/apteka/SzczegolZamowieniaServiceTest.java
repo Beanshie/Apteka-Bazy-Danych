@@ -39,8 +39,9 @@ class SzczegolZamowieniaServiceTest {
   @Autowired PlatformTransactionManager transactions;
 
   private Zamowienie newOrder() {
-    return orders.create(
-        new ZamowienieCreate(1, 1, List.of(new SzczegolZamowieniaCreate(4))));
+    var order = orders.create(new ZamowienieCreate(1, 1));
+    items.create(new SzczegolZamowieniaCreate(4), order.getIdZamowienia());
+    return orders.get(order.getIdZamowienia());
   }
 
   private int stock(int product) {
@@ -88,7 +89,7 @@ class SzczegolZamowieniaServiceTest {
     int initialStock = stock(4);
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       items.delete(line, id);
       assertTrue(items.list(id).isEmpty());
@@ -107,11 +108,11 @@ class SzczegolZamowieniaServiceTest {
   @Test
   void deletingCancelledItemsReducesTotalsWithoutChangingStock() {
     int firstStock = stock(4), secondStock = stock(2);
-    var order = orders.create(new ZamowienieCreate(1, 1,
-        List.of(new SzczegolZamowieniaCreate(4).ilosc(2)))
+    var order = orders.create(new ZamowienieCreate(1, 1)
         .statusZamowienia(ZamowienieCreate.StatusZamowieniaEnum.ANULOWANE));
+    items.create(new SzczegolZamowieniaCreate(4).ilosc(2), order.getIdZamowienia());
     int id = order.getIdZamowienia();
-    int first = order.getPozycje().getFirst().getIdSzczegolu();
+    int first = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       var second = items.create(new SzczegolZamowieniaCreate(2).ilosc(3), id);
       items.delete(first, id);
@@ -133,7 +134,7 @@ class SzczegolZamowieniaServiceTest {
   void deletePreservesIdGuardsMissingParentErrorsAndAbsentItemSuccess() {
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       for (Integer invalid : Arrays.asList(null, 0, -1)) {
         assertRejected(IllegalArgumentException.class, id, () -> items.delete(invalid, id));
@@ -157,7 +158,7 @@ class SzczegolZamowieniaServiceTest {
     int initialStock = stock(4);
     var order = newOrder();
     int id = order.getIdZamowienia();
-    var line = order.getPozycje().getFirst();
+    var line = items.list(order.getIdZamowienia()).getFirst();
     try {
       jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=4", Integer.MAX_VALUE);
       assertRejected(DataIntegrityViolationException.class, id,
@@ -175,9 +176,9 @@ class SzczegolZamowieniaServiceTest {
   @Test
   void concurrentDeletesRestoreStockExactlyOnce() throws Exception {
     int initialStock = stock(4);
-    var order = orders.create(new ZamowienieCreate(1, 1,
-        List.of(new SzczegolZamowieniaCreate(4).ilosc(3))));
-    int id = order.getIdZamowienia(), line = order.getPozycje().getFirst().getIdSzczegolu();
+    var order = orders.create(new ZamowienieCreate(1, 1));
+    items.create(new SzczegolZamowieniaCreate(4).ilosc(3), order.getIdZamowienia());
+    int id = order.getIdZamowienia(), line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       try (var executor = Executors.newFixedThreadPool(2)) {
         var start = new CountDownLatch(1);
@@ -205,7 +206,7 @@ class SzczegolZamowieniaServiceTest {
   void concurrentDeleteAndQuantityUpdateLeaveNoReservation() throws Exception {
     int initialStock = stock(4);
     var order = newOrder();
-    int id = order.getIdZamowienia(), line = order.getPozycje().getFirst().getIdSzczegolu();
+    int id = order.getIdZamowienia(), line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       try (var executor = Executors.newFixedThreadPool(2)) {
         var start = new CountDownLatch(1);
@@ -241,7 +242,7 @@ class SzczegolZamowieniaServiceTest {
     var first = newOrder();
     var second = newOrder();
     int firstId = first.getIdZamowienia(), secondId = second.getIdZamowienia();
-    int line = first.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(first.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       var firstBefore = state(firstId);
       var secondBefore = state(secondId);
@@ -262,7 +263,7 @@ class SzczegolZamowieniaServiceTest {
   void databaseQuantityAndUniquenessFailuresLeaveReservationsUnchanged() {
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       for (int quantity : new int[] {0, -1}) {
         assertRejected(
@@ -303,7 +304,7 @@ class SzczegolZamowieniaServiceTest {
   void unavailableStockAndExcessiveTotalRollBackEveryChange() {
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     var originalPrice =
         jdbc.queryForObject("SELECT cena FROM Produkt WHERE id_produktu=1", BigDecimal.class);
     try {
@@ -337,7 +338,7 @@ class SzczegolZamowieniaServiceTest {
   void missingReferencesAndNullBodiesDoNotChangeTheOrder() {
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       assertRejected(IllegalArgumentException.class, id, () -> items.create(null, id));
       assertRejected(IllegalArgumentException.class, id, () -> items.update(line, null, id));
@@ -371,7 +372,7 @@ class SzczegolZamowieniaServiceTest {
   void updatePreservesMissingReferenceAndPrescriptionErrorsAndRollsBack() {
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       var missingProduct = assertRejected(NoSuchElementException.class, id,
           () -> items.update(line, new SzczegolZamowieniaUpdate().idProduktu(Integer.MAX_VALUE).ilosc(1), id));
@@ -528,7 +529,7 @@ class SzczegolZamowieniaServiceTest {
     var prescription = prescriptions.create(new ReceptaCreate(1, "clear-rx", "80011501234"));
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       var withPrescription =
           items.update(line,
@@ -550,7 +551,7 @@ class SzczegolZamowieniaServiceTest {
     int initialStock = stock(4);
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=4", Integer.MAX_VALUE);
       items.update(line, new SzczegolZamowieniaUpdate().idProduktu(4).ilosc(2), id);
@@ -599,7 +600,7 @@ class SzczegolZamowieniaServiceTest {
     int initialStock = stock(4);
     var order = newOrder();
     int id = order.getIdZamowienia();
-    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    int line = items.list(order.getIdZamowienia()).getFirst().getIdSzczegolu();
     try {
       try (var executor = Executors.newFixedThreadPool(2)) {
         var start = new CountDownLatch(1);
