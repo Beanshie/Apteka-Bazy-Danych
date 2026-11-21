@@ -174,3 +174,59 @@ BEGIN
     WHERE id_zamowienia = NEW.id_zamowienia;
 END //
 DELIMITER ;
+
+-- ---------------- 9. Procedura składowana - Składanie zamówienia z transakcją ----------------
+DROP PROCEDURE IF EXISTS sp_zloz_zamowienie;
+
+DELIMITER //
+CREATE PROCEDURE sp_zloz_zamowienie(
+    IN p_id_klienta INT,
+    IN p_id_adresu INT,
+    IN p_id_produktu INT,
+    IN p_ilosc INT,
+    IN p_id_recepty INT,
+    IN p_metoda_platnosci VARCHAR(30)
+)
+BEGIN
+    DECLARE v_cena DECIMAL(10, 2);
+    DECLARE v_stan INT;
+    DECLARE v_nowe_zamowienie_id INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT cena, stan_magazynowy
+    INTO v_cena, v_stan
+    FROM Produkt
+    WHERE id_produktu = p_id_produktu
+    FOR UPDATE;
+
+    IF v_stan < p_ilosc THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Błąd: Niewystarczający stan magazynowy produktu.';
+    END IF;
+
+    INSERT INTO Zamowienie (id_klienta, id_adresu, status_zamowienia, suma_calkowita)
+    VALUES (p_id_klienta, p_id_adresu, 'NOWE', 0.00);
+
+    SET v_nowe_zamowienie_id = LAST_INSERT_ID();
+
+    INSERT INTO Szczegol_Zamowienia (id_zamowienia, id_produktu, id_recepty, ilosc, cena_jednostkowa)
+    VALUES (v_nowe_zamowienie_id, p_id_produktu, p_id_recepty, p_ilosc, v_cena);
+
+    UPDATE Produkt
+    SET stan_magazynowy = stan_magazynowy - p_ilosc
+    WHERE id_produktu = p_id_produktu;
+
+    INSERT INTO Platnosc (id_zamowienia, metoda_platnosci, status_platnosci, data_platnosci)
+    VALUES (v_nowe_zamowienie_id, p_metoda_platnosci, 'OCZEKUJACA', NULL);
+
+    COMMIT;
+END //
+DELIMITER ;
+
