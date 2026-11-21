@@ -105,6 +105,138 @@ class SzczegolZamowieniaServiceTest {
   }
 
   @Test
+  void deletingCancelledItemsReducesTotalsWithoutChangingStock() {
+    int firstStock = stock(4), secondStock = stock(2);
+    var order = orders.create(new ZamowienieCreate(1, 1,
+        List.of(new SzczegolZamowieniaCreate(4).ilosc(2)))
+        .statusZamowienia(ZamowienieCreate.StatusZamowieniaEnum.ANULOWANE));
+    int id = order.getIdZamowienia();
+    int first = order.getPozycje().getFirst().getIdSzczegolu();
+    try {
+      var second = items.create(new SzczegolZamowieniaCreate(2).ilosc(3), id);
+      items.delete(first, id);
+      assertEquals(List.of(second), items.list(id));
+      assertEquals(firstStock, stock(4));
+      assertEquals(secondStock, stock(2));
+      assertTotal(id);
+      items.delete(second.getIdSzczegolu(), id);
+      assertTrue(items.list(id).isEmpty());
+      assertEquals(0, state(id).total().signum());
+      assertEquals(firstStock, stock(4));
+      assertEquals(secondStock, stock(2));
+    } finally {
+      orders.delete(id);
+    }
+  }
+
+  @Test
+  void deletePreservesIdGuardsMissingParentErrorsAndAbsentItemSuccess() {
+    var order = newOrder();
+    int id = order.getIdZamowienia();
+    int line = order.getPozycje().getFirst().getIdSzczegolu();
+    try {
+      for (Integer invalid : Arrays.asList(null, 0, -1)) {
+        assertRejected(IllegalArgumentException.class, id, () -> items.delete(invalid, id));
+        assertRejected(IllegalArgumentException.class, id, () -> items.delete(line, invalid));
+      }
+      var missingParent = assertRejected(NoSuchElementException.class, id,
+          () -> items.delete(line, Integer.MAX_VALUE));
+      assertEquals("Nie znaleziono rekordu", missingParent.getMessage());
+      assertRejected(NoSuchElementException.class, id,
+          () -> items.delete(Integer.MAX_VALUE, Integer.MAX_VALUE));
+      var before = state(id);
+      items.delete(Integer.MAX_VALUE, id);
+      assertEquals(before, state(id));
+    } finally {
+      orders.delete(id);
+    }
+  }
+
+  @Test
+  void failedStockRestorationRollsBackItemDeletionAndTotalChange() {
+    int initialStock = stock(4);
+    var order = newOrder();
+    int id = order.getIdZamowienia();
+    var line = order.getPozycje().getFirst();
+    try {
+      jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=4", Integer.MAX_VALUE);
+      assertRejected(DataIntegrityViolationException.class, id,
+          () -> items.delete(line.getIdSzczegolu(), id));
+      assertEquals(line, items.get(line.getIdSzczegolu(), id));
+      assertTotal(id);
+    } finally {
+      jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=4",
+          initialStock - line.getIlosc());
+      orders.delete(id);
+    }
+    assertEquals(initialStock, stock(4));
+  }
+
+  @Test
+  void concurrentDeletesRestoreStockExactlyOnce() throws Exception {
+    int initialStock = stock(4);
+    var order = orders.create(new ZamowienieCreate(1, 1,
+        List.of(new SzczegolZamowieniaCreate(4).ilosc(3))));
+    int id = order.getIdZamowienia(), line = order.getPozycje().getFirst().getIdSzczegolu();
+    try {
+      try (var executor = Executors.newFixedThreadPool(2)) {
+        var start = new CountDownLatch(1);
+        List<Future<Boolean>> deletions = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+          deletions.add(executor.submit(() -> {
+            start.await();
+            items.delete(line, id);
+            return true;
+          }));
+        }
+        start.countDown();
+        for (var deletion : deletions) assertTrue(deletion.get(30, TimeUnit.SECONDS));
+      }
+      assertTrue(items.list(id).isEmpty());
+      assertEquals(initialStock, stock(4));
+      assertEquals(0, state(id).total().signum());
+    } finally {
+      orders.delete(id);
+    }
+    assertEquals(initialStock, stock(4));
+  }
+
+  @Test
+  void concurrentDeleteAndQuantityUpdateLeaveNoReservation() throws Exception {
+    int initialStock = stock(4);
+    var order = newOrder();
+    int id = order.getIdZamowienia(), line = order.getPozycje().getFirst().getIdSzczegolu();
+    try {
+      try (var executor = Executors.newFixedThreadPool(2)) {
+        var start = new CountDownLatch(1);
+        var deletion = executor.submit(() -> {
+          start.await();
+          items.delete(line, id);
+          return true;
+        });
+        var edit = executor.submit(() -> {
+          start.await();
+          try {
+            items.update(line, new SzczegolZamowieniaUpdate().idProduktu(4).ilosc(3), id);
+          } catch (NoSuchElementException deleted) {
+            // A committed deletion can remove the item before the update reaches it.
+          }
+          return true;
+        });
+        start.countDown();
+        assertTrue(deletion.get(30, TimeUnit.SECONDS));
+        assertTrue(edit.get(30, TimeUnit.SECONDS));
+      }
+      assertTrue(items.list(id).isEmpty());
+      assertEquals(initialStock, stock(4));
+      assertEquals(0, state(id).total().signum());
+    } finally {
+      orders.delete(id);
+    }
+    assertEquals(initialStock, stock(4));
+  }
+
+  @Test
   void wrongParentCannotReadUpdateOrDeleteAnItem() {
     var first = newOrder();
     var second = newOrder();

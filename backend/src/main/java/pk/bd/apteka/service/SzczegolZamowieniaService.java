@@ -101,26 +101,18 @@ public class SzczegolZamowieniaService {
   public void delete(Integer id, Integer idZamowienia) {
     if (idZamowienia == null || idZamowienia < 1) throw new IllegalArgumentException("Niepoprawne ID");
     if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-    lockOrder(idZamowienia);
-    lockProducts();
-    jdbc.update(
-        "DELETE FROM Szczegol_Zamowienia WHERE id_szczegolu=:id AND id_zamowienia=:id_zamowienia",
-        new MapSqlParameterSource("id", id).addValue("id_zamowienia", idZamowienia));
-  }
-
-  private Zamowienie lockOrder(Integer id) {
-    try {
-      return jdbc.queryForObject(
-          "SELECT id_klienta,status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
-          new MapSqlParameterSource("id", id),
-          new BeanPropertyRowMapper<>(Zamowienie.class));
-    } catch (EmptyResultDataAccessException error) {
+    var parameters = new MapSqlParameterSource("id", id).addValue("id_zamowienia", idZamowienia);
+    int rows =
+        jdbc.update(
+            "DELETE FROM Szczegol_Zamowienia WHERE id_szczegolu=:id AND id_zamowienia=:id_zamowienia",
+            parameters);
+    if (rows == 0
+        && !Boolean.TRUE.equals(
+            jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM Zamowienie WHERE id_zamowienia=:id_zamowienia)",
+                parameters,
+                Boolean.class))) {
       throw new NoSuchElementException("Nie znaleziono rekordu");
     }
-  }
-
-  private void lockProducts() {
-    // Use the same product lock order as ZamowienieService.
-    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
   }
 }

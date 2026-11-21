@@ -62,6 +62,11 @@ Check the current implementation, migrations, and tests when changing behavior.
 - Item triggers maintain totals and stock using atomic arithmetic updates.
   `chk_produkt_stan` in V01 enforces nonnegative stock. Cancelled (`ANULOWANE`)
   orders retain their totals but do not reserve stock.
+- Item deletion executes a DELETE restricted by item and parent order IDs, with
+  stock/total changes handled by the AFTER DELETE trigger. It performs no Java
+  order/product locking. Only when no item is deleted does it query whether the
+  parent exists: missing parents return HTTP 404, while absent items under an
+  existing parent return HTTP 204. Successful deletion needs no follow-up query.
 - Preserve full order replacement as deletion of old items, update of the header,
   then insertion of replacement items. This uses the old status for stock release
   and the new status for reservation, generates fresh item IDs, refreshes prices,
@@ -75,10 +80,11 @@ Check the current implementation, migrations, and tests when changing behavior.
   ownership and status checks. Review existing lock order before changing
   concurrent mutations. A rejected mutation must leave items, totals, and stock
   unchanged.
-- An item UPDATE locks its target row before its trigger locks the parent order;
-  full order replacement locks the parent first. Concurrent updates/replacements
-  can therefore surface database deadlocks. Verify committed results and rollback
-  of rejected operations; no automatic retry is currently provided.
+- Item UPDATE/DELETE statements lock their target rows before their triggers lock
+  the parent order; full order replacement locks the parent first. Concurrent
+  mutations/replacements can therefore surface database deadlocks. Verify committed
+  results and rollback of rejected operations; no automatic retry is currently
+  provided.
 - Preserve the trigger error-code contract with `OrderItemConstraintErrors`:
   `30001` means insufficient stock, `30002` excessive order total, `30003` wrong
   prescription customer, `30004` invalid prescription status, and `30005` a

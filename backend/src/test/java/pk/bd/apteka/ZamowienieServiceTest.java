@@ -393,6 +393,56 @@ class ZamowienieServiceTest {
   }
 
   @Test
+  void concurrentReplacementAndItemDeletionPreserveOnlyCommittedReservations() throws Exception {
+    int initialStock = stock(4);
+    var order = orders.create(request(new SzczegolZamowieniaCreate(4)));
+    int id = order.getIdZamowienia(), line = order.getPozycje().getFirst().getIdSzczegolu();
+    try {
+      Zamowienie replacementResult;
+      boolean deletionCommitted;
+      try (var executor = Executors.newFixedThreadPool(2)) {
+        var start = new CountDownLatch(1);
+        var replace = executor.submit(() -> {
+          start.await();
+          try {
+            return orders.update(id, replacement(request(new SzczegolZamowieniaCreate(4).ilosc(2))));
+          } catch (ConcurrencyFailureException rolledBack) {
+            return null;
+          }
+        });
+        var deletion = executor.submit(() -> {
+          start.await();
+          try {
+            items.delete(line, id);
+            return true;
+          } catch (ConcurrencyFailureException rolledBack) {
+            return false;
+          }
+        });
+        start.countDown();
+        replacementResult = replace.get(30, TimeUnit.SECONDS);
+        deletionCommitted = deletion.get(30, TimeUnit.SECONDS);
+      }
+      assertTrue(replacementResult != null || deletionCommitted);
+      var current = orders.get(id);
+      if (replacementResult == null) {
+        assertTrue(current.getPozycje().isEmpty());
+        assertEquals(initialStock, stock(4));
+      } else {
+        assertEquals(1, current.getPozycje().size());
+        var replacement = current.getPozycje().getFirst();
+        assertNotEquals(line, replacement.getIdSzczegolu());
+        assertEquals(2, replacement.getIlosc());
+        assertEquals(initialStock - 2, stock(4));
+      }
+      assertTotal(id);
+    } finally {
+      orders.delete(id);
+    }
+    assertEquals(initialStock, stock(4));
+  }
+
+  @Test
   void concurrentCancellationAndAdditionLeaveNoActiveReservations() throws Exception {
     int firstStock = stock(4), secondStock = stock(2);
     var order = orders.create(request(new SzczegolZamowieniaCreate(4)));
