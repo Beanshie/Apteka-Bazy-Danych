@@ -140,3 +140,37 @@ END //
 DELIMITER ;
 
 
+-- ---------------- 8. Wyzwalacze (Triggers) - Walidacja recepty i aktualizacja sumy ----------------
+DROP TRIGGER IF EXISTS trg_sprawdz_recepte_przed_dodaniem;
+
+DELIMITER //
+CREATE TRIGGER trg_sprawdz_recepte_przed_dodaniem
+BEFORE INSERT ON Szczegol_Zamowienia
+FOR EACH ROW
+BEGIN
+    DECLARE v_wymaga_recepty TINYINT(1);
+
+    SELECT wymaga_recepty
+    INTO v_wymaga_recepty
+    FROM Produkt
+    WHERE id_produktu = NEW.id_produktu;
+
+    IF v_wymaga_recepty = 1 AND NEW.id_recepty IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Błąd: Ten produkt wymaga ważnej recepty (id_recepty nie może być NULL).';
+    END IF;
+END //
+DELIMITER ;
+
+DROP TRIGGER IF EXISTS trg_aktualizuj_sume_zamowienia;
+
+DELIMITER //
+CREATE TRIGGER trg_aktualizuj_sume_zamowienia
+AFTER INSERT ON Szczegol_Zamowienia
+FOR EACH ROW
+BEGIN
+    UPDATE Zamowienie
+    SET suma_calkowita = fn_oblicz_wartosc_zamowienia(NEW.id_zamowienia)
+    WHERE id_zamowienia = NEW.id_zamowienia;
+END //
+DELIMITER ;
