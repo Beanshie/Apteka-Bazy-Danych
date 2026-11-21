@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.NoSuchElementException;
 import org.springframework.dao.DataIntegrityViolationException;
 
-/** Translates the business error codes emitted by the V03 item triggers. */
+/** Translates the business error codes emitted by the V03 order and item triggers. */
 final class OrderItemConstraintErrors {
   private OrderItemConstraintErrors() {}
 
@@ -24,7 +24,10 @@ final class OrderItemConstraintErrors {
             return new IllegalArgumentException("Wymagana recepta", error);
           case 30006:
           case 30007:
+          case 30009:
             return new NoSuchElementException("Nie znaleziono rekordu", error);
+          case 30008:
+            return new IllegalArgumentException("Adres należy do innego klienta", error);
           default:
             break;
         }

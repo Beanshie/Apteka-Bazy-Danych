@@ -14,6 +14,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.*;
 import org.testcontainers.mariadb.MariaDBContainer;
 import pk.bd.apteka.dto.*;
@@ -35,6 +37,7 @@ class ZamowienieServiceTest {
   @Autowired SzczegolZamowieniaService items;
   @Autowired ReceptaService prescriptions;
   @Autowired JdbcTemplate jdbc;
+  @Autowired PlatformTransactionManager transactions;
 
   private ZamowienieCreate request(SzczegolZamowieniaCreate... items) {
     return new ZamowienieCreate(1, 1, Arrays.asList(items));
@@ -216,6 +219,16 @@ class ZamowienieServiceTest {
         assertRejected(IllegalArgumentException.class,
             () -> orders.update(invalid, replacement(request(new SzczegolZamowieniaCreate(1)))));
         assertRejected(IllegalArgumentException.class, () -> orders.delete(invalid));
+        assertRejected(IllegalArgumentException.class,
+            () -> orders.create(request(new SzczegolZamowieniaCreate(invalid))));
+        assertRejected(IllegalArgumentException.class,
+            () -> orders.update(id, replacement(request(new SzczegolZamowieniaCreate(invalid)))));
+        assertRejected(IllegalArgumentException.class,
+            () -> orders.create(request(new SzczegolZamowieniaCreate(1)).idAdresu(invalid)));
+        assertRejected(IllegalArgumentException.class,
+            () -> orders.update(id, replacement(request(new SzczegolZamowieniaCreate(1))).idAdresu(invalid)));
+        assertRejected(IllegalArgumentException.class,
+            () -> orders.update(id, replacement(request(new SzczegolZamowieniaCreate(1))).idKlienta(invalid)));
       }
       assertRejected(NoSuchElementException.class,
           () -> orders.update(Integer.MAX_VALUE, replacement(request(new SzczegolZamowieniaCreate(1)))));
@@ -225,18 +238,18 @@ class ZamowienieServiceTest {
   }
 
   @Test
-  void quantityDuplicatesAndMissingReplacementStatusAreDatabaseFailures() {
+  void itemConstraintFailuresUseCreateErrorsWhileHeaderFailuresRemainIntegrityErrors() {
     var order = orders.create(request(new SzczegolZamowieniaCreate(4)));
     int id = order.getIdZamowienia();
     try {
       for (int quantity : new int[] {0, -1}) {
         var invalid = request(new SzczegolZamowieniaCreate(1).ilosc(quantity));
         assertRejected(IllegalArgumentException.class, () -> orders.create(invalid));
-        assertRejected(DataIntegrityViolationException.class, () -> orders.update(id, replacement(invalid)));
+        assertRejected(IllegalArgumentException.class, () -> orders.update(id, replacement(invalid)));
       }
       var duplicate = request(new SzczegolZamowieniaCreate(1), new SzczegolZamowieniaCreate(1));
       assertRejected(IllegalArgumentException.class, () -> orders.create(duplicate));
-      assertRejected(DataIntegrityViolationException.class, () -> orders.update(id, replacement(duplicate)));
+      assertRejected(IllegalArgumentException.class, () -> orders.update(id, replacement(duplicate)));
       assertRejected(DataIntegrityViolationException.class,
           () -> orders.update(id, replacement(request(new SzczegolZamowieniaCreate(1)))
               .statusZamowienia(null)));
@@ -252,10 +265,16 @@ class ZamowienieServiceTest {
     try {
       var missingClient = request(new SzczegolZamowieniaCreate(1)).idKlienta(Integer.MAX_VALUE);
       assertRejected(IllegalArgumentException.class, () -> orders.create(missingClient));
-      assertRejected(NoSuchElementException.class, () -> orders.update(id, replacement(missingClient)));
+      assertRejected(DataIntegrityViolationException.class, () -> orders.update(id, replacement(missingClient)));
+      var missingProduct = request(new SzczegolZamowieniaCreate(Integer.MAX_VALUE));
+      assertRejected(IllegalArgumentException.class, () -> orders.create(missingProduct));
+      assertRejected(IllegalArgumentException.class, () -> orders.update(id, replacement(missingProduct)));
+      var missingLaterProduct = request(
+          new SzczegolZamowieniaCreate(1), new SzczegolZamowieniaCreate(Integer.MAX_VALUE));
+      assertRejected(IllegalArgumentException.class, () -> orders.create(missingLaterProduct));
+      assertRejected(IllegalArgumentException.class, () -> orders.update(id, replacement(missingLaterProduct)));
       for (var invalid : List.of(
           request(new SzczegolZamowieniaCreate(1)).idAdresu(Integer.MAX_VALUE),
-          request(new SzczegolZamowieniaCreate(Integer.MAX_VALUE)),
           request(new SzczegolZamowieniaCreate(3).idRecepty(Integer.MAX_VALUE)))) {
         assertRejected(NoSuchElementException.class, () -> orders.create(invalid));
         assertRejected(NoSuchElementException.class, () -> orders.update(id, replacement(invalid)));
@@ -339,6 +358,178 @@ class ZamowienieServiceTest {
       orders.delete(id);
     }
     assertEquals(initialStock, stock(4));
+  }
+
+  @Test
+  void deletionRollsBackItemsHeaderAndPaymentWhenStockRestorationOverflows() {
+    int initialStock = stock(4);
+    var order = orders.create(request(new SzczegolZamowieniaCreate(4)));
+    int id = order.getIdZamowienia();
+    try {
+      jdbc.update("INSERT INTO Platnosc(id_zamowienia,metoda_platnosci) VALUES (?,'KARTA')", id);
+      jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=4", Integer.MAX_VALUE);
+      assertRejected(DataIntegrityViolationException.class, () -> orders.delete(id));
+    } finally {
+      jdbc.update("UPDATE Produkt SET stan_magazynowy=? WHERE id_produktu=4", initialStock - 1);
+      orders.delete(id);
+    }
+    assertEquals(initialStock, stock(4));
+  }
+
+  @Test
+  void mutationsDoNotWaitForAnUnrelatedProductLock() {
+    int initialStock = stock(1);
+    try (var executor = Executors.newSingleThreadExecutor()) {
+      new TransactionTemplate(transactions).executeWithoutResult(status -> {
+        jdbc.queryForObject("SELECT id_produktu FROM Produkt WHERE id_produktu=10 FOR UPDATE", Integer.class);
+        var mutation = executor.submit(() -> {
+          var order = orders.create(request(new SzczegolZamowieniaCreate(1)));
+          int id = order.getIdZamowienia();
+          try {
+            orders.update(id, replacement(request(new SzczegolZamowieniaCreate(1).ilosc(2))));
+            assertTotal(id);
+          } finally {
+            orders.delete(id);
+          }
+          assertThrows(NoSuchElementException.class, () -> orders.get(id));
+        });
+        assertDoesNotThrow(() -> mutation.get(5, TimeUnit.SECONDS));
+      });
+    }
+    assertEquals(initialStock, stock(1));
+  }
+
+  @Test
+  void headerMutationsWaitForAddressChangesAndRejectCommittedOwnershipMismatch() throws Exception {
+    int id = orders.create(request(new SzczegolZamowieniaCreate(4))).getIdZamowienia();
+    try {
+      for (boolean updating : new boolean[] {false, true}) {
+        var before = state();
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+          var addressChange = executor.submit(() ->
+              new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                jdbc.update("UPDATE Adres_Klienta SET id_klienta=2 WHERE id_adresu=5");
+                locked.countDown();
+                try {
+                  assertTrue(release.await(10, TimeUnit.SECONDS));
+                } catch (InterruptedException error) {
+                  Thread.currentThread().interrupt();
+                  throw new IllegalStateException(error);
+                }
+              }));
+          try {
+            assertTrue(locked.await(5, TimeUnit.SECONDS));
+            var started = new CountDownLatch(1);
+            var mutation = executor.submit(() -> {
+              started.countDown();
+              var request = request(new SzczegolZamowieniaCreate(1)).idAdresu(5);
+              return updating ? orders.update(id, replacement(request)) : orders.create(request);
+            });
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            assertThrows(TimeoutException.class, () -> mutation.get(250, TimeUnit.MILLISECONDS));
+            release.countDown();
+            addressChange.get(10, TimeUnit.SECONDS);
+            var failure = assertThrows(ExecutionException.class, () -> mutation.get(10, TimeUnit.SECONDS));
+            var error = assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+            assertEquals("Adres należy do innego klienta", error.getMessage());
+            assertEquals(before, state());
+          } finally {
+            release.countDown();
+            addressChange.get(10, TimeUnit.SECONDS);
+          }
+        } finally {
+          jdbc.update("UPDATE Adres_Klienta SET id_klienta=1 WHERE id_adresu=5");
+        }
+      }
+    } finally {
+      orders.delete(id);
+    }
+  }
+
+  @Test
+  void concurrentOrderDeletionsRestoreStockExactlyOnce() throws Exception {
+    int initialStock = stock(4);
+    int id = orders.create(request(new SzczegolZamowieniaCreate(4).ilosc(2))).getIdZamowienia();
+    try {
+      jdbc.update("INSERT INTO Platnosc(id_zamowienia,metoda_platnosci) VALUES (?,'KARTA')", id);
+      try (var executor = Executors.newFixedThreadPool(2)) {
+        var start = new CountDownLatch(1);
+        List<Future<?>> results = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+          results.add(executor.submit(() -> {
+            start.await();
+            orders.delete(id);
+            return null;
+          }));
+        }
+        start.countDown();
+        for (var result : results) result.get(30, TimeUnit.SECONDS);
+      }
+      assertThrows(NoSuchElementException.class, () -> orders.get(id));
+      assertEquals(0, jdbc.queryForObject(
+          "SELECT COUNT(*) FROM Szczegol_Zamowienia WHERE id_zamowienia=?", Integer.class, id));
+      assertEquals(0, jdbc.queryForObject(
+          "SELECT COUNT(*) FROM Platnosc WHERE id_zamowienia=?", Integer.class, id));
+      assertEquals(initialStock, stock(4));
+    } finally {
+      orders.delete(id);
+    }
+  }
+
+  @Test
+  void concurrentOrderDeletionAndItemCreationPreserveOnlyCommittedReservations() throws Exception {
+    int firstStock = stock(4), secondStock = stock(2);
+    int id = orders.create(request(new SzczegolZamowieniaCreate(4))).getIdZamowienia();
+    try {
+      boolean deleted;
+      boolean added;
+      try (var executor = Executors.newFixedThreadPool(2)) {
+        var start = new CountDownLatch(1);
+        var deletion = executor.submit(() -> {
+          start.await();
+          try {
+            orders.delete(id);
+            return true;
+          } catch (ConcurrencyFailureException rolledBack) {
+            return false;
+          }
+        });
+        var addition = executor.submit(() -> {
+          start.await();
+          try {
+            items.create(new SzczegolZamowieniaCreate(2).ilosc(2), id);
+            return true;
+          } catch (IllegalArgumentException missingParent) {
+            assertEquals("Błąd integralności danych", missingParent.getMessage());
+            return false;
+          } catch (ConcurrencyFailureException rolledBack) {
+            return false;
+          }
+        });
+        start.countDown();
+        deleted = deletion.get(30, TimeUnit.SECONDS);
+        added = addition.get(30, TimeUnit.SECONDS);
+      }
+      assertTrue(deleted || added);
+      if (deleted) {
+        assertThrows(NoSuchElementException.class, () -> orders.get(id));
+        assertEquals(0, jdbc.queryForObject(
+            "SELECT COUNT(*) FROM Szczegol_Zamowienia WHERE id_zamowienia=?", Integer.class, id));
+        assertEquals(firstStock, stock(4));
+        assertEquals(secondStock, stock(2));
+      } else {
+        assertEquals(2, orders.get(id).getPozycje().size());
+        assertEquals(firstStock - 1, stock(4));
+        assertEquals(secondStock - 2, stock(2));
+        assertTotal(id);
+      }
+    } finally {
+      orders.delete(id);
+    }
+    assertEquals(firstStock, stock(4));
+    assertEquals(secondStock, stock(2));
   }
 
   @Test

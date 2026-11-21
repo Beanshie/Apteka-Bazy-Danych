@@ -23,18 +23,16 @@ public class ZamowienieService {
       "id_szczegolu,id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa";
 
   private final NamedParameterJdbcTemplate jdbc;
-  private final KlientService klient;
-  private final ProduktService produkt;
+  private final SzczegolZamowieniaService szczegolZamowienia;
 
   public ZamowienieService(
-      NamedParameterJdbcTemplate jdbc, KlientService klient, ProduktService produkt) {
+      NamedParameterJdbcTemplate jdbc, SzczegolZamowieniaService szczegolZamowienia) {
     this.jdbc = jdbc;
-    this.klient = klient;
-    this.produkt = produkt;
+    this.szczegolZamowienia = szczegolZamowienia;
   }
 
   public Zamowienie get(Integer id) {
-    validateId(id);
+    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
     Zamowienie order;
     try {
       order =
@@ -110,10 +108,19 @@ public class ZamowienieService {
   @Transactional
   public Zamowienie create(ZamowienieCreate value) {
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    validateItems(value.getPozycje());
-    // Acquire product locks before the new header's foreign keys lock its address.
-    lockProducts();
-    validateAddress(value.getIdAdresu(), value.getIdKlienta());
+    List<SzczegolZamowieniaCreate> items = value.getPozycje();
+    if (items == null || items.isEmpty()) throw new IllegalArgumentException("Wymagane pozycje");
+    for (var item : items) {
+      if (item == null) throw new IllegalArgumentException("Pole nie może być null: pozycja");
+      Integer id2 = item.getIdProduktu();
+      if (id2 == null || id2 < 1) throw new IllegalArgumentException("Niepoprawne ID");
+      if (item.getIdRecepty() != null) {
+        Integer id3 = item.getIdRecepty();
+        if (id3 == null || id3 < 1) throw new IllegalArgumentException("Niepoprawne ID");
+      }
+    }
+    Integer id1 = value.getIdAdresu();
+    if (id1 == null || id1 < 1) throw new IllegalArgumentException("Niepoprawne ID");
 
     Map<String, Object> parameters = new LinkedHashMap<>();
     parameters.put("id_klienta", value.getIdKlienta());
@@ -130,7 +137,7 @@ public class ZamowienieService {
           key,
           new String[] {"id_zamowienia"});
       int id = Objects.requireNonNull(key.getKey()).intValue();
-      insertItems(id, value.getIdKlienta(), value.getPozycje());
+      insertItems(id, value.getPozycje());
       return get(id);
     } catch (DataIntegrityViolationException e) {
       throw OrderItemConstraintErrors.translateCreate(e);
@@ -139,13 +146,25 @@ public class ZamowienieService {
 
   @Transactional
   public Zamowienie update(Integer id, ZamowienieUpdate value) {
-    validateId(id);
+    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    validateItems(value.getPozycje());
+    List<SzczegolZamowieniaCreate> items = value.getPozycje();
+    if (items == null || items.isEmpty()) throw new IllegalArgumentException("Wymagane pozycje");
+    for (var item : items) {
+      if (item == null) throw new IllegalArgumentException("Pole nie może być null: pozycja");
+      Integer id3 = item.getIdProduktu();
+      if (id3 == null || id3 < 1) throw new IllegalArgumentException("Niepoprawne ID");
+      if (item.getIdRecepty() != null) {
+        Integer id4 = item.getIdRecepty();
+        if (id4 == null || id4 < 1) throw new IllegalArgumentException("Niepoprawne ID");
+      }
+    }
+    Integer id2 = value.getIdKlienta();
+    if (id2 == null || id2 < 1) throw new IllegalArgumentException("Niepoprawne ID");
+    Integer id1 = value.getIdAdresu();
+    if (id1 == null || id1 < 1) throw new IllegalArgumentException("Niepoprawne ID");
+    // Serialize the complete replacement against other mutations of this order.
     lockOrder(id);
-    lockProducts();
-    klient.get(value.getIdKlienta());
-    validateAddress(value.getIdAdresu(), value.getIdKlienta());
 
     String status =
         value.getStatusZamowienia() == null ? null : value.getStatusZamowienia().getValue();
@@ -163,7 +182,7 @@ public class ZamowienieService {
           "UPDATE Zamowienie SET id_klienta=:id_klienta,id_adresu=:id_adresu,"
               + "status_zamowienia=:status_zamowienia WHERE id_zamowienia=:_id",
           new MapSqlParameterSource(parameters));
-      insertItems(id, value.getIdKlienta(), value.getPozycje());
+      insertItems(id, value.getPozycje());
     } catch (DataIntegrityViolationException error) {
       throw OrderItemConstraintErrors.translate(error);
     }
@@ -172,13 +191,12 @@ public class ZamowienieService {
 
   @Transactional
   public void delete(Integer id) {
-    validateId(id);
+    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
     try {
       lockOrder(id);
     } catch (NoSuchElementException error) {
       return;
     }
-    lockProducts();
     // Foreign-key cascades do not execute the item-delete trigger.
     jdbc.update(
         "DELETE FROM Szczegol_Zamowienia WHERE id_zamowienia=:id",
@@ -187,94 +205,21 @@ public class ZamowienieService {
         "DELETE FROM Zamowienie WHERE id_zamowienia=:id", new MapSqlParameterSource("id", id));
   }
 
-  private void validateId(Integer id) {
-    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
+  private void lockOrder(Integer id) {
+    try {
+      jdbc.queryForObject(
+              "SELECT status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
+              new MapSqlParameterSource("id", id),
+              String.class);
+    } catch (EmptyResultDataAccessException error) {
+      throw new NoSuchElementException("Nie znaleziono rekordu");
+    }
   }
 
-  private void validateItems(List<SzczegolZamowieniaCreate> items) {
-    if (items == null || items.isEmpty()) throw new IllegalArgumentException("Wymagane pozycje");
+  private void insertItems(Integer id, List<SzczegolZamowieniaCreate> items) {
     for (var item : items) {
-      if (item == null) throw new IllegalArgumentException("Pole nie może być null: pozycja");
+      szczegolZamowienia.create(item, id);
     }
-  }
-
-  private String lockOrder(Integer id) {
-    try {
-      return jdbc.queryForObject(
-          "SELECT status_zamowienia FROM Zamowienie WHERE id_zamowienia=:id FOR UPDATE",
-          new MapSqlParameterSource("id", id),
-          String.class);
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
-    }
-  }
-
-  private void lockProducts() {
-    // Use the same product lock order as SzczegolZamowieniaService.
-    jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
-  }
-
-  private void validateAddress(Integer idAdresu, Integer idKlienta) {
-    validateId(idAdresu);
-    try {
-      Integer owner =
-          jdbc.queryForObject(
-              "SELECT id_klienta FROM Adres_Klienta WHERE id_adresu=:id FOR UPDATE",
-              new MapSqlParameterSource("id", idAdresu),
-              Integer.class);
-      if (!Objects.equals(owner, idKlienta))
-        throw new IllegalArgumentException("Adres należy do innego klienta");
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
-    }
-  }
-
-  private Recepta lockPrescription(Integer id) {
-    validateId(id);
-    try {
-      return jdbc.queryForObject(
-          "SELECT id_klienta,status_recepty FROM Recepta WHERE id_recepty=:id FOR UPDATE",
-          new MapSqlParameterSource("id", id),
-          new BeanPropertyRowMapper<>(Recepta.class));
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
-    }
-  }
-
-  private void insertItems(
-      Integer id, Integer idKlienta, List<SzczegolZamowieniaCreate> items) {
-    Map<Integer, Produkt> products = new HashMap<>();
-    Map<Integer, Recepta> prescriptions = new HashMap<>();
-    for (var item : items) {
-      var selectedProduct = products.computeIfAbsent(item.getIdProduktu(), produkt::get);
-      Recepta prescription =
-          item.getIdRecepty() == null
-              ? null
-              : prescriptions.computeIfAbsent(item.getIdRecepty(), this::lockPrescription);
-      validatePrescription(idKlienta, selectedProduct, prescription);
-      Map<String, Object> parameters = new LinkedHashMap<>();
-      parameters.put("id_zamowienia", id);
-      parameters.put("id_produktu", item.getIdProduktu());
-      parameters.put("id_recepty", item.getIdRecepty());
-      parameters.put("ilosc", item.getIlosc() == null ? 1 : item.getIlosc());
-      jdbc.update(
-          "INSERT INTO Szczegol_Zamowienia"
-              + " (id_zamowienia,id_produktu,id_recepty,ilosc,cena_jednostkowa)"
-              + " VALUES (:id_zamowienia,:id_produktu,:id_recepty,:ilosc,NULL)",
-          new MapSqlParameterSource(parameters));
-    }
-  }
-
-  private void validatePrescription(Integer idKlienta, Produkt product, Recepta prescription) {
-    if (prescription != null) {
-      if (!Objects.equals(prescription.getIdKlienta(), idKlienta))
-        throw new IllegalArgumentException("Recepta należy do innego klienta");
-      if (prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.NOWA
-          && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.ZWERYFIKOWANA)
-        throw new IllegalArgumentException("Recepta nie jest ważna");
-    }
-    if (product.getWymagaRecepty() && prescription == null)
-      throw new IllegalArgumentException("Wymagana recepta");
   }
 
   private List<SzczegolZamowienia> loadItems(Integer id) {

@@ -39,10 +39,15 @@ Check the current implementation, migrations, and tests when changing behavior.
   migrations already applied to a database or repair checksums to hide changes.
   Keep migrations compatible with MariaDB and the existing InnoDB constraints.
 - `V03__szczegol_zamowienia_triggers.sql` owns item price defaults, insert/update
-  prescription validation, stock changes, and order totals. Item creation and
-  updates rely on these checks inside their SQL statements; preserve the existing
-  Java validation of full order replacement. Do not duplicate stock/total updates
-  in Java services.
+  prescription validation, stock changes, order totals, and header address
+  ownership. Item mutations and full order creation/replacement rely on these
+  checks inside their SQL statements. Do not duplicate database validation or
+  stock/total updates in Java services.
+- Header BEFORE INSERT/UPDATE triggers validate that the address belongs to the
+  customer, using shared locks on the referenced customer and address. Missing
+  customers and NULL references remain database constraint failures. Header
+  updates validate ownership only when the customer or address changes, so item
+  total adjustments do not repeat these lookups.
 - On insert, a NULL `cena_jednostkowa` asks the BEFORE INSERT trigger to copy
   `Produkt.cena`; an explicitly supplied price is preserved. Avoid selecting from
   `Produkt` in an INSERT whose trigger also updates `Produkt`: MariaDB rejects
@@ -76,6 +81,17 @@ Check the current implementation, migrations, and tests when changing behavior.
   cascades do not execute the item-delete trigger. Header-only status changes
   through raw SQL do not adjust reservations; service status changes use the
   replacement flow.
+- Full order replacement/deletion retains a targeted parent-order lock across
+  its multiple statements, preventing concurrent additions between child deletion
+  and header mutation. Creation needs no Java row locks. Do not lock the product
+  catalog or read products/prescriptions/customers in Java before writing items.
+- Full order creation/replacement inserts each item through
+  `SzczegolZamowieniaService.create`, joining the enclosing transaction and keeping
+  its post-insert `get()`. The order service discards these item responses and
+  returns the final order through its own `get()`. Missing products, duplicate
+  items, and invalid quantities use item creation errors (HTTP 400), including
+  during replacement. Header constraint failures and stock-restoration overflow
+  during replacement retain HTTP 409.
 - Keep multi-step order/item mutations transactional, including prescription
   ownership and status checks. Review existing lock order before changing
   concurrent mutations. A rejected mutation must leave items, totals, and stock
@@ -91,8 +107,9 @@ Check the current implementation, migrations, and tests when changing behavior.
   required prescription missing. These become `IllegalArgumentException`
   business errors (HTTP 400). Code `30006` means a referenced prescription does
   not exist; `30007` means a product referenced by an update does not exist. Both
-  become `NoSuchElementException` (HTTP 404). Preserve the separate handling of
-  other integrity and database failures.
+  become `NoSuchElementException` (HTTP 404). Code `30008` means an address belongs
+  to another customer (HTTP 400), and `30009` means an address is missing (HTTP 404).
+  Preserve the separate handling of other integrity and database failures.
 - Deploy changes that transfer responsibilities between services and triggers
   together, with application writes stopped during the transition.
 

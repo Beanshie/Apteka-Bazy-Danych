@@ -96,10 +96,14 @@ class SzczegolZamowieniaTriggersTest {
   }
 
   @Test
-  void flywayInstallsFiveTriggersAndPreservesSeedReservations() {
+  void flywayInstallsItemAndHeaderTriggersAndPreservesSeedReservations() {
     assertEquals(5, jdbc.queryForObject(
         "SELECT COUNT(*) FROM information_schema.TRIGGERS"
             + " WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='Szczegol_Zamowienia'",
+        Integer.class));
+    assertEquals(2, jdbc.queryForObject(
+        "SELECT COUNT(*) FROM information_schema.TRIGGERS"
+            + " WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='Zamowienie'",
         Integer.class));
     assertTotal(1, "47.00");
     // V02 defines available stock; installing V03 must not deduct historical items again.
@@ -107,6 +111,59 @@ class SzczegolZamowieniaTriggersTest {
     // A historical fulfilled prescription remains attached to its original item.
     assertEquals(1, jdbc.queryForObject(
         "SELECT id_recepty FROM Szczegol_Zamowienia WHERE id_szczegolu=3", Integer.class));
+  }
+
+  @Test
+  void headersValidateAddressOwnershipAndMissingReferences() {
+    assertRejected(30008, () -> jdbc.update(
+        "INSERT INTO Zamowienie(id_klienta,id_adresu) VALUES (1,2)"));
+    assertRejected(30009, () -> jdbc.update(
+        "INSERT INTO Zamowienie(id_klienta,id_adresu) VALUES (1,?)", Integer.MAX_VALUE));
+    assertRejected(null, () -> jdbc.update(
+        "INSERT INTO Zamowienie(id_klienta,id_adresu) VALUES (?,1)", Integer.MAX_VALUE));
+    assertRejected(null, () -> jdbc.update(
+        "INSERT INTO Zamowienie(id_klienta,id_adresu) VALUES (NULL,1)"));
+    assertRejected(null, () -> jdbc.update(
+        "INSERT INTO Zamowienie(id_klienta,id_adresu) VALUES (1,NULL)"));
+
+    int order = order(false);
+    assertRejected(30008, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_adresu=2 WHERE id_zamowienia=?", order));
+    assertRejected(30008, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_klienta=2 WHERE id_zamowienia=?", order));
+    assertRejected(30009, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_adresu=? WHERE id_zamowienia=?", Integer.MAX_VALUE, order));
+    assertRejected(null, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_klienta=? WHERE id_zamowienia=?", Integer.MAX_VALUE, order));
+    assertRejected(null, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_klienta=NULL WHERE id_zamowienia=?", order));
+    assertRejected(null, () -> jdbc.update(
+        "UPDATE Zamowienie SET id_adresu=NULL WHERE id_zamowienia=?", order));
+    jdbc.update("UPDATE Zamowienie SET id_klienta=2,id_adresu=2 WHERE id_zamowienia=?", order);
+    assertEquals(2, jdbc.queryForObject(
+        "SELECT id_klienta FROM Zamowienie WHERE id_zamowienia=?", Integer.class, order));
+    assertEquals(2, jdbc.queryForObject(
+        "SELECT id_adresu FROM Zamowienie WHERE id_zamowienia=?", Integer.class, order));
+  }
+
+  @Test
+  void totalOnlyUpdatesDoNotRevalidateUnchangedAddressOwnership() {
+    int address = jdbc.queryForObject(
+        "INSERT INTO Adres_Klienta(id_klienta,ulica,numer_domu,kod_pocztowy,miasto)"
+            + " VALUES (1,'Testowa','1','00-001','Warszawa') RETURNING id_adresu", Integer.class);
+    int order = jdbc.queryForObject(
+        "INSERT INTO Zamowienie(id_klienta,id_adresu) VALUES (1,?) RETURNING id_zamowienia",
+        Integer.class, address);
+    // An independent address reassignment must not break item total adjustments.
+    jdbc.update("UPDATE Adres_Klienta SET id_klienta=2 WHERE id_adresu=?", address);
+    int initialStock = stock(1);
+    int line = insert(order, 1, 2, BigDecimal.ONE);
+    assertTotal(order, "2.00");
+    jdbc.update("UPDATE Szczegol_Zamowienia SET ilosc=1 WHERE id_szczegolu=?", line);
+    assertTotal(order, "1.00");
+    jdbc.update("DELETE FROM Szczegol_Zamowienia WHERE id_szczegolu=?", line);
+    assertTotal(order, "0.00");
+    assertEquals(initialStock, stock(1));
   }
 
   @Test

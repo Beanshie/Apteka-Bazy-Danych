@@ -4,11 +4,63 @@
 -- 30003: prescription customer mismatch; 30004: invalid prescription status;
 -- 30005: required prescription missing; 30006: prescription record missing.
 -- 30007: product record missing during an update.
+-- 30008: address customer mismatch; 30009: address record missing.
 -- Existing items have already reserved stock; do not replay their reservations.
 -- Deploy with the service changes while application writes are stopped:
 -- older service code would apply the stock changes a second time.
 
 DELIMITER //
+
+CREATE TRIGGER zamowienie_before_insert
+BEFORE INSERT ON Zamowienie
+FOR EACH ROW
+BEGIN
+    DECLARE existing_customer INT;
+    DECLARE address_customer INT;
+    DECLARE missing_reference BOOLEAN DEFAULT FALSE;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET missing_reference = TRUE;
+
+    -- Shared locks stabilize ownership without serializing orders sharing an address.
+    SELECT id_klienta INTO existing_customer FROM Klient
+    WHERE id_klienta = NEW.id_klienta LOCK IN SHARE MODE;
+    -- Let FK/NOT NULL constraints reject missing customers and NULL addresses.
+    IF NOT missing_reference AND NEW.id_adresu IS NOT NULL THEN
+        SELECT id_klienta INTO address_customer FROM Adres_Klienta
+        WHERE id_adresu = NEW.id_adresu LOCK IN SHARE MODE;
+        IF missing_reference THEN
+            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30009, MESSAGE_TEXT = 'Nie znaleziono rekordu';
+        END IF;
+        IF address_customer <> NEW.id_klienta THEN
+            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30008, MESSAGE_TEXT = 'Adres należy do innego klienta';
+        END IF;
+    END IF;
+END//
+
+CREATE TRIGGER zamowienie_before_update
+BEFORE UPDATE ON Zamowienie
+FOR EACH ROW
+BEGIN
+    DECLARE existing_customer INT;
+    DECLARE address_customer INT;
+    DECLARE missing_reference BOOLEAN DEFAULT FALSE;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET missing_reference = TRUE;
+
+    -- Item triggers update totals; only changed ownership/address needs validation.
+    IF NOT (NEW.id_klienta <=> OLD.id_klienta) OR NOT (NEW.id_adresu <=> OLD.id_adresu) THEN
+        SELECT id_klienta INTO existing_customer FROM Klient
+        WHERE id_klienta = NEW.id_klienta LOCK IN SHARE MODE;
+        IF NOT missing_reference AND NEW.id_adresu IS NOT NULL THEN
+            SELECT id_klienta INTO address_customer FROM Adres_Klienta
+            WHERE id_adresu = NEW.id_adresu LOCK IN SHARE MODE;
+            IF missing_reference THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30009, MESSAGE_TEXT = 'Nie znaleziono rekordu';
+            END IF;
+            IF address_customer <> NEW.id_klienta THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30008, MESSAGE_TEXT = 'Adres należy do innego klienta';
+            END IF;
+        END IF;
+    END IF;
+END//
 
 CREATE TRIGGER szczegol_zamowienia_before_insert
 BEFORE INSERT ON Szczegol_Zamowienia
