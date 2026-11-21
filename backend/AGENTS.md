@@ -38,10 +38,10 @@ Check the current implementation, migrations, and tests when changing behavior.
 - Add new numbered Flyway migrations for database changes. Do not rewrite
   migrations already applied to a database or repair checksums to hide changes.
   Keep migrations compatible with MariaDB and the existing InnoDB constraints.
-- `V03__szczegol_zamowienia_triggers.sql` owns item price defaults, creation-time
-  prescription validation, stock changes, and order totals. Item creation relies
-  on these checks inside the insert; preserve the existing Java validation of
-  item updates and full order replacement. Do not duplicate stock/total updates
+- `V03__szczegol_zamowienia_triggers.sql` owns item price defaults, insert/update
+  prescription validation, stock changes, and order totals. Item creation and
+  updates rely on these checks inside their SQL statements; preserve the existing
+  Java validation of full order replacement. Do not duplicate stock/total updates
   in Java services.
 - On insert, a NULL `cena_jednostkowa` asks the BEFORE INSERT trigger to copy
   `Produkt.cena`; an explicitly supplied price is preserved. Avoid selecting from
@@ -51,6 +51,14 @@ Check the current implementation, migrations, and tests when changing behavior.
   prescription, in that order. Every supplied prescription must belong to the
   order's customer and be NOWA or ZWERYFIKOWANA, including optional prescriptions
   and cancelled-order inserts. Products requiring prescriptions must receive one.
+- On update, NULL `cena_jednostkowa` preserves the old snapshot if the product is
+  unchanged or selects the new product's current price. Direct SQL can supply an
+  explicit non-NULL price. The BEFORE UPDATE trigger locks old/new orders and
+  products in ascending ID order, followed by the prescription. It always checks
+  prescription ownership; status and prescription requirements are revalidated
+  when the product, prescription, or parent changes, or quantity increases.
+  Unchanged items and reductions with unchanged associations can retain their
+  existing prescription status.
 - Item triggers maintain totals and stock using atomic arithmetic updates.
   `chk_produkt_stan` in V01 enforces nonnegative stock. Cancelled (`ANULOWANE`)
   orders retain their totals but do not reserve stock.
@@ -67,13 +75,18 @@ Check the current implementation, migrations, and tests when changing behavior.
   ownership and status checks. Review existing lock order before changing
   concurrent mutations. A rejected mutation must leave items, totals, and stock
   unchanged.
+- An item UPDATE locks its target row before its trigger locks the parent order;
+  full order replacement locks the parent first. Concurrent updates/replacements
+  can therefore surface database deadlocks. Verify committed results and rollback
+  of rejected operations; no automatic retry is currently provided.
 - Preserve the trigger error-code contract with `OrderItemConstraintErrors`:
   `30001` means insufficient stock, `30002` excessive order total, `30003` wrong
   prescription customer, `30004` invalid prescription status, and `30005` a
   required prescription missing. These become `IllegalArgumentException`
   business errors (HTTP 400). Code `30006` means a referenced prescription does
-  not exist and becomes `NoSuchElementException` (HTTP 404). Preserve the separate
-  handling of other integrity and database failures.
+  not exist; `30007` means a product referenced by an update does not exist. Both
+  become `NoSuchElementException` (HTTP 404). Preserve the separate handling of
+  other integrity and database failures.
 - Deploy changes that transfer responsibilities between services and triggers
   together, with application writes stopped during the transition.
 

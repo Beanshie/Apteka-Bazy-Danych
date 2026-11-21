@@ -23,6 +23,7 @@ final class OrderItemConstraintErrors {
           case 30005:
             return new IllegalArgumentException("Wymagana recepta", error);
           case 30006:
+          case 30007:
             return new NoSuchElementException("Nie znaleziono rekordu", error);
           default:
             break;

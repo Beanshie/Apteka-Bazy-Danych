@@ -3,6 +3,7 @@
 -- 30001: insufficient stock; 30002: order total exceeds DECIMAL(10,2).
 -- 30003: prescription customer mismatch; 30004: invalid prescription status;
 -- 30005: required prescription missing; 30006: prescription record missing.
+-- 30007: product record missing during an update.
 -- Existing items have already reserved stock; do not replay their reservations.
 -- Deploy with the service changes while application writes are stopped:
 -- older service code would apply the stock changes a second time.
@@ -77,6 +78,83 @@ BEGIN
             SET stan_magazynowy = stan_magazynowy - NEW.ilosc
             WHERE id_produktu = NEW.id_produktu;
         END;
+    END IF;
+END//
+
+CREATE TRIGGER szczegol_zamowienia_before_update
+BEFORE UPDATE ON Szczegol_Zamowienia
+FOR EACH ROW
+BEGIN
+    DECLARE order_customer INT;
+    DECLARE locked_id INT;
+    DECLARE product_price DECIMAL(10,2);
+    DECLARE requires_prescription BOOLEAN;
+    DECLARE prescription_customer INT;
+    DECLARE prescription_status VARCHAR(20);
+    DECLARE strict_validation BOOLEAN;
+    DECLARE missing_reference BOOLEAN DEFAULT FALSE;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET missing_reference = TRUE;
+
+    -- Lock old/new parents in ID order; read the new parent's customer.
+    IF OLD.id_zamowienia < NEW.id_zamowienia THEN
+        SELECT id_zamowienia INTO locked_id FROM Zamowienie
+        WHERE id_zamowienia = OLD.id_zamowienia FOR UPDATE;
+    END IF;
+    SELECT id_klienta INTO order_customer FROM Zamowienie
+    WHERE id_zamowienia = NEW.id_zamowienia FOR UPDATE;
+    IF OLD.id_zamowienia > NEW.id_zamowienia THEN
+        SELECT id_zamowienia INTO locked_id FROM Zamowienie
+        WHERE id_zamowienia = OLD.id_zamowienia FOR UPDATE;
+    END IF;
+
+    -- Lock old/new products in ID order before the stock trigger touches them.
+    IF OLD.id_produktu < NEW.id_produktu THEN
+        SELECT id_produktu INTO locked_id FROM Produkt
+        WHERE id_produktu = OLD.id_produktu FOR UPDATE;
+    END IF;
+    SELECT cena, wymaga_recepty INTO product_price, requires_prescription
+    FROM Produkt WHERE id_produktu = NEW.id_produktu FOR UPDATE;
+    IF OLD.id_produktu > NEW.id_produktu THEN
+        SELECT id_produktu INTO locked_id FROM Produkt
+        WHERE id_produktu = OLD.id_produktu FOR UPDATE;
+    END IF;
+    IF NEW.id_produktu IS NOT NULL AND product_price IS NULL THEN
+        SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30007, MESSAGE_TEXT = 'Nie znaleziono rekordu';
+    END IF;
+
+    -- NULL requests the same snapshot policy used by the Java update endpoint.
+    -- Explicit non-NULL prices remain available to direct SQL callers.
+    IF NEW.cena_jednostkowa IS NULL THEN
+        IF NEW.id_produktu <=> OLD.id_produktu THEN
+            SET NEW.cena_jednostkowa = OLD.cena_jednostkowa;
+        ELSE
+            SET NEW.cena_jednostkowa = product_price;
+        END IF;
+    END IF;
+
+    SET strict_validation = NOT (NEW.id_produktu <=> OLD.id_produktu)
+        OR NOT (NEW.id_recepty <=> OLD.id_recepty)
+        OR NOT (NEW.id_zamowienia <=> OLD.id_zamowienia)
+        OR NEW.ilosc > OLD.ilosc;
+
+    -- Existing constraints handle missing parents and NULL products/quantities.
+    IF order_customer IS NOT NULL AND product_price IS NOT NULL THEN
+        IF NEW.id_recepty IS NOT NULL THEN
+            SET missing_reference = FALSE;
+            SELECT id_klienta, status_recepty INTO prescription_customer, prescription_status
+            FROM Recepta WHERE id_recepty = NEW.id_recepty FOR UPDATE;
+            IF missing_reference THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30006, MESSAGE_TEXT = 'Nie znaleziono rekordu';
+            END IF;
+            IF prescription_customer <> order_customer THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30003, MESSAGE_TEXT = 'Recepta należy do innego klienta';
+            END IF;
+            IF strict_validation AND prescription_status NOT IN ('NOWA', 'ZWERYFIKOWANA') THEN
+                SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30004, MESSAGE_TEXT = 'Recepta nie jest ważna';
+            END IF;
+        ELSEIF strict_validation AND requires_prescription THEN
+            SIGNAL SQLSTATE '23000' SET MYSQL_ERRNO = 30005, MESSAGE_TEXT = 'Wymagana recepta';
+        END IF;
     END IF;
 END//
 

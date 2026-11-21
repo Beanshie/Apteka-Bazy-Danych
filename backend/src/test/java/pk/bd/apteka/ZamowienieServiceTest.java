@@ -9,6 +9,7 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -346,29 +347,45 @@ class ZamowienieServiceTest {
     var order = orders.create(request(new SzczegolZamowieniaCreate(4)));
     int id = order.getIdZamowienia(), line = order.getPozycje().getFirst().getIdSzczegolu();
     try {
+      Zamowienie replacementResult;
+      boolean editCommitted;
       try (var executor = Executors.newFixedThreadPool(2)) {
         var start = new CountDownLatch(1);
         var replace = executor.submit(() -> {
           start.await();
-          return orders.update(id, replacement(request(new SzczegolZamowieniaCreate(4).ilosc(2))));
+          try {
+            return orders.update(id, replacement(request(new SzczegolZamowieniaCreate(4).ilosc(2))));
+          } catch (ConcurrencyFailureException rolledBack) {
+            return null;
+          }
         });
         var edit = executor.submit(() -> {
           start.await();
           try {
             items.update(line, new SzczegolZamowieniaUpdate().idProduktu(4).ilosc(3), id);
+            return true;
           } catch (NoSuchElementException replaced) {
-            // Full replacement removes the original line if it wins the order lock first.
+            // A committed full replacement removes the original item.
+            return false;
+          } catch (ConcurrencyFailureException rolledBack) {
+            // The item UPDATE and full replacement can acquire row locks in opposite order.
+            return false;
           }
-          return true;
         });
         start.countDown();
-        assertNotNull(replace.get(30, TimeUnit.SECONDS));
-        assertTrue(edit.get(30, TimeUnit.SECONDS));
+        replacementResult = replace.get(30, TimeUnit.SECONDS);
+        editCommitted = edit.get(30, TimeUnit.SECONDS);
       }
+      assertTrue(replacementResult != null || editCommitted);
+      int quantity = replacementResult == null ? 3 : 2;
       var current = orders.get(id);
       assertEquals(1, current.getPozycje().size());
-      assertEquals(2, current.getPozycje().getFirst().getIlosc());
-      assertEquals(initialStock - 2, stock(4));
+      assertEquals(quantity, current.getPozycje().getFirst().getIlosc());
+      if (replacementResult == null)
+        assertEquals(line, current.getPozycje().getFirst().getIdSzczegolu());
+      else
+        assertNotEquals(line, current.getPozycje().getFirst().getIdSzczegolu());
+      assertEquals(initialStock - quantity, stock(4));
       assertTotal(id);
     } finally {
       orders.delete(id);

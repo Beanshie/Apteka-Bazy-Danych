@@ -14,11 +14,9 @@ import pk.bd.apteka.dto.*;
 public class SzczegolZamowieniaService {
 
   private final NamedParameterJdbcTemplate jdbc;
-  private final ProduktService produkt;
 
-  public SzczegolZamowieniaService(NamedParameterJdbcTemplate jdbc, ProduktService produkt) {
+  public SzczegolZamowieniaService(NamedParameterJdbcTemplate jdbc) {
     this.jdbc = jdbc;
-    this.produkt = produkt;
   }
 
   public SzczegolZamowienia get(Integer id, Integer idZamowienia) {
@@ -77,38 +75,26 @@ public class SzczegolZamowieniaService {
     if (idZamowienia == null || idZamowienia < 1) throw new IllegalArgumentException("Niepoprawne ID");
     if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
     if (value == null) throw new IllegalArgumentException("Pole nie może być null: body");
-    var order = lockOrder(idZamowienia);
-    lockProducts();
-    var previousItem = get(id, idZamowienia);
-    var selectedProduct = produkt.get(value.getIdProduktu());
-    var prescription = value.getIdRecepty() == null ? null : lockPrescription(value.getIdRecepty());
-    boolean productChanged = !Objects.equals(value.getIdProduktu(), previousItem.getIdProduktu());
+    if (value.getIdProduktu() == null || value.getIdProduktu() < 1)
+      throw new IllegalArgumentException("Niepoprawne ID");
+    if (value.getIdRecepty() != null && value.getIdRecepty() < 1)
+      throw new IllegalArgumentException("Niepoprawne ID");
     Map<String, Object> parameters = new LinkedHashMap<>();
     parameters.put("id_produktu", value.getIdProduktu());
     parameters.put("id_recepty", value.getIdRecepty());
     parameters.put("ilosc", value.getIlosc());
-    parameters.put(
-        "cena_jednostkowa",
-        productChanged ? selectedProduct.getCena() : previousItem.getCenaJednostkowa());
     parameters.put("id_zamowienia", idZamowienia);
     parameters.put("_id", id);
     try {
       jdbc.update(
           "UPDATE Szczegol_Zamowienia SET id_produktu=:id_produktu,id_recepty=:id_recepty,"
-              + "ilosc=:ilosc,cena_jednostkowa=:cena_jednostkowa"
+              + "ilosc=:ilosc,cena_jednostkowa=NULL"
               + " WHERE id_szczegolu=:_id AND id_zamowienia=:id_zamowienia",
           new MapSqlParameterSource(parameters));
     } catch (DataIntegrityViolationException error) {
       throw OrderItemConstraintErrors.translate(error);
     }
-    // Read the quantity only after the database has checked NOT NULL and CHECK constraints.
-    var item = get(id, idZamowienia);
-    boolean requiresValidation =
-        productChanged
-            || !Objects.equals(item.getIdRecepty(), previousItem.getIdRecepty())
-            || item.getIlosc() > previousItem.getIlosc();
-    validatePrescription(order, selectedProduct, prescription, requiresValidation);
-    return item;
+    return get(id, idZamowienia);
   }
 
   @Transactional
@@ -136,31 +122,5 @@ public class SzczegolZamowieniaService {
   private void lockProducts() {
     // Use the same product lock order as ZamowienieService.
     jdbc.queryForList("SELECT id_produktu FROM Produkt ORDER BY id_produktu FOR UPDATE", Map.of());
-  }
-
-  private Recepta lockPrescription(Integer id) {
-    if (id == null || id < 1) throw new IllegalArgumentException("Niepoprawne ID");
-    try {
-      return jdbc.queryForObject(
-          "SELECT id_klienta,status_recepty FROM Recepta WHERE id_recepty=:id FOR UPDATE",
-          new MapSqlParameterSource("id", id),
-          new BeanPropertyRowMapper<>(Recepta.class));
-    } catch (EmptyResultDataAccessException error) {
-      throw new NoSuchElementException("Nie znaleziono rekordu");
-    }
-  }
-
-  private void validatePrescription(
-      Zamowienie order, Produkt selectedProduct, Recepta prescription, boolean requiresValidation) {
-    if (prescription != null) {
-      if (!Objects.equals(prescription.getIdKlienta(), order.getIdKlienta()))
-        throw new IllegalArgumentException("Recepta należy do innego klienta");
-      if (requiresValidation
-          && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.NOWA
-          && prescription.getStatusRecepty() != Recepta.StatusReceptyEnum.ZWERYFIKOWANA)
-        throw new IllegalArgumentException("Recepta nie jest ważna");
-    }
-    if (requiresValidation && selectedProduct.getWymagaRecepty() && prescription == null)
-      throw new IllegalArgumentException("Wymagana recepta");
   }
 }

@@ -59,6 +59,12 @@ class SzczegolZamowieniaTriggersTest {
         Integer.class, customer, status);
   }
 
+  private void update(int line, int product, int quantity, Integer prescription) {
+    jdbc.update(
+        "UPDATE Szczegol_Zamowienia SET id_produktu=?,ilosc=?,id_recepty=?,cena_jednostkowa=NULL"
+            + " WHERE id_szczegolu=?", product, quantity, prescription, line);
+  }
+
   private int stock(int product) {
     return jdbc.queryForObject(
         "SELECT stan_magazynowy FROM Produkt WHERE id_produktu=?", Integer.class, product);
@@ -90,8 +96,8 @@ class SzczegolZamowieniaTriggersTest {
   }
 
   @Test
-  void flywayInstallsFourTriggersAndPreservesSeedReservations() {
-    assertEquals(4, jdbc.queryForObject(
+  void flywayInstallsFiveTriggersAndPreservesSeedReservations() {
+    assertEquals(5, jdbc.queryForObject(
         "SELECT COUNT(*) FROM information_schema.TRIGGERS"
             + " WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE='Szczegol_Zamowienia'",
         Integer.class));
@@ -192,6 +198,119 @@ class SzczegolZamowieniaTriggersTest {
     assertEquals(firstStock, stock(1));
     assertEquals(secondStock - 4, stock(2));
     assertTotal(order, "8.00");
+  }
+
+  @Test
+  void nullUpdatePricePreservesSnapshotAndRefreshesItWhenProductChanges() {
+    int order = order(false);
+    int firstStock = stock(1), secondStock = stock(2);
+    int line = insert(order, 1, 2, new BigDecimal("4.00"));
+    jdbc.update("UPDATE Produkt SET cena=99 WHERE id_produktu=1");
+    update(line, 1, 3, null);
+    assertTotal(order, "12.00");
+    assertEquals(firstStock - 3, stock(1));
+    jdbc.update("UPDATE Produkt SET cena=7.50 WHERE id_produktu=2");
+    update(line, 2, 2, null);
+    assertEquals(new BigDecimal("7.50"), jdbc.queryForObject(
+        "SELECT cena_jednostkowa FROM Szczegol_Zamowienia WHERE id_szczegolu=?",
+        BigDecimal.class, line));
+    assertTotal(order, "15.00");
+    assertEquals(firstStock, stock(1));
+    assertEquals(secondStock - 2, stock(2));
+  }
+
+  @Test
+  void updatesAcceptNewAndVerifiedPrescriptionsIncludingCancelledOrders() {
+    for (boolean cancelled : new boolean[] {false, true}) {
+      for (String status : List.of("NOWA", "ZWERYFIKOWANA")) {
+        int order = order(cancelled);
+        int firstStock = stock(1), requiredStock = stock(3);
+        int line = insert(order, 1, 1, null);
+        int prescription = prescription(1, status);
+        update(line, 3, 2, prescription);
+        assertEquals(firstStock, stock(1));
+        assertEquals(requiredStock - (cancelled ? 0 : 2), stock(3));
+        assertTotal(order, "68.40");
+        // A different, valid prescription can replace the original one.
+        int replacement = prescription(1, status);
+        update(line, 3, 2, replacement);
+        assertEquals(replacement, jdbc.queryForObject(
+            "SELECT id_recepty FROM Szczegol_Zamowienia WHERE id_szczegolu=?", Integer.class, line));
+        assertTotal(order, "68.40");
+      }
+    }
+  }
+
+  @Test
+  void unchangedItemsAndReductionsRetainInvalidStatusesButIncreasesAndAssociationChangesFail() {
+    for (boolean cancelled : new boolean[] {false, true}) {
+      for (String status : List.of("ZREALIZOWANA", "ODRZUCONA")) {
+        int order = order(cancelled), destination = order(cancelled);
+        int prescription = prescription(1, "NOWA");
+        int requiredStock = stock(3);
+        int required = insert(order, 3, 3, null, prescription);
+        int optional = insert(order, 1, 1, null, prescription);
+        jdbc.update("UPDATE Recepta SET status_recepty=? WHERE id_recepty=?", status, prescription);
+        var before = state();
+        update(required, 3, 3, prescription);
+        assertEquals(before, state());
+        update(required, 3, 2, prescription);
+        assertEquals(requiredStock - (cancelled ? 0 : 2), stock(3));
+        assertTotal(order, "80.90");
+        assertRejected(30004, () -> update(required, 3, 3, prescription));
+        assertRejected(30004, () -> update(required, 5, 2, prescription));
+        assertRejected(30005, () -> update(required, 3, 2, null));
+        assertRejected(30004, () -> jdbc.update(
+            "UPDATE Szczegol_Zamowienia SET id_zamowienia=? WHERE id_szczegolu=?", destination, required));
+        int invalidReplacement = prescription(1, status);
+        assertRejected(30004, () -> update(required, 3, 2, invalidReplacement));
+        // Clearing an optional prescription does not require a valid old status.
+        update(optional, 1, 1, null);
+        assertNull(jdbc.queryForObject(
+            "SELECT id_recepty FROM Szczegol_Zamowienia WHERE id_szczegolu=?", Integer.class, optional));
+        assertTotal(order, "80.90");
+      }
+    }
+  }
+
+  @Test
+  void updatesAlwaysCheckOwnershipEvenForUnchangedItemsAndReductions() {
+    int order = order(false);
+    int prescription = prescription(1, "NOWA");
+    int line = insert(order, 3, 2, null, prescription);
+    jdbc.update("UPDATE Recepta SET id_klienta=2 WHERE id_recepty=?", prescription);
+    assertRejected(30003, () -> update(line, 3, 2, prescription));
+    assertRejected(30003, () -> update(line, 3, 1, prescription));
+    jdbc.update("UPDATE Recepta SET id_klienta=1 WHERE id_recepty=?", prescription);
+    int otherCustomer = jdbc.queryForObject(
+        "INSERT INTO Zamowienie (id_klienta,id_adresu) VALUES (2,2) RETURNING id_zamowienia", Integer.class);
+    assertRejected(30003, () -> jdbc.update(
+        "UPDATE Szczegol_Zamowienia SET id_zamowienia=? WHERE id_szczegolu=?", otherCustomer, line));
+  }
+
+  @Test
+  void updatesRejectMissingProductsAndInvalidPrescriptionsWithoutChanges() {
+    int order = order(false);
+    int line = insert(order, 1, 1, null);
+    int wrongCustomer = prescription(2, "NOWA");
+    int invalidStatus = prescription(1, "ODRZUCONA");
+    assertRejected(30007, () -> update(line, Integer.MAX_VALUE, 1, null));
+    assertRejected(30006, () -> update(line, 1, 1, Integer.MAX_VALUE));
+    assertRejected(30003, () -> update(line, 1, 1, wrongCustomer));
+    assertRejected(30004, () -> update(line, 1, 1, invalidStatus));
+    assertRejected(30005, () -> update(line, 3, 1, null));
+  }
+
+  @Test
+  void invalidPrescriptionInMultiRowUpdateRollsBackEarlierValidItem() {
+    int order = order(false);
+    int prescription = prescription(1, "NOWA");
+    insert(order, 1, 1, null);
+    insert(order, 3, 1, null, prescription);
+    jdbc.update("UPDATE Recepta SET status_recepty='ZREALIZOWANA' WHERE id_recepty=?", prescription);
+    assertRejected(30004, () -> jdbc.update(
+        "UPDATE Szczegol_Zamowienia SET ilosc=2,cena_jednostkowa=NULL"
+            + " WHERE id_zamowienia=? ORDER BY id_szczegolu", order));
   }
 
   @Test
