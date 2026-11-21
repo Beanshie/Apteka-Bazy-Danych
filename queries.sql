@@ -118,3 +118,25 @@ FROM Zamowienie z
 INNER JOIN Klient k ON z.id_klienta = k.id_klienta
 INNER JOIN Adres_Klienta a ON z.id_adresu = a.id_adresu
 LEFT JOIN Platnosc pl ON z.id_zamowienia = pl.id_zamowienia;
+
+-- ---------------- 7. Funkcja składowana - Obliczanie wartości zamówienia ----------------
+DROP FUNCTION IF EXISTS fn_oblicz_wartosc_zamowienia;
+
+DELIMITER //
+CREATE FUNCTION fn_oblicz_wartosc_zamowienia(p_id_zamowienia INT)
+RETURNS DECIMAL(10, 2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_suma DECIMAL(10, 2);
+
+    SELECT IFNULL(SUM(ilosc * cena_jednostkowa), 0.00)
+    INTO v_suma
+    FROM Szczegol_Zamowienia
+    WHERE id_zamowienia = p_id_zamowienia;
+
+    RETURN v_suma;
+END //
+DELIMITER ;
+
+
