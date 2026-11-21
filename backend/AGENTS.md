@@ -6,11 +6,14 @@ This guide applies to the backend directory and its descendants. The application
 uses Java 25, Spring Boot 4, Spring JDBC, MariaDB, and Flyway. Use the Maven wrapper
 from this directory.
 
-- `api/`: OpenAPI specifications for the ten resources.
+- `api/`: OpenAPI specifications for the ten resources and authentication.
 - `src/main/java/pk/bd/apteka/controller/`: implementations of generated API
   interfaces and HTTP response handling.
 - `src/main/java/pk/bd/apteka/service/`: parameterized SQL, transactions, and
   business validation using `NamedParameterJdbcTemplate`.
+- `src/main/java/pk/bd/apteka/config/`: session security and credentialed CORS
+  configuration, including `SecurityConfig`.
+- `src/main/java/pk/bd/apteka/security/`: credential-free `SessionIdentity`.
 - `src/main/resources/db/migration/`: schema, seed data, and database triggers.
 - `src/test/java/pk/bd/apteka/`: unit, controller, service, and trigger tests.
 - `target/generated-sources/openapi/`: generated API interfaces and DTOs.
@@ -32,6 +35,43 @@ Check the current implementation, migrations, and tests when changing behavior.
 - Preserve BCrypt password hashing and write-only password fields. Null or
   omitted passwords on update retain the existing hash.
 - Preserve UTC database sessions and UTC conversion of order/payment timestamps.
+
+## Authentication
+
+- `api/auth.yaml` defines `/auth/csrf`, `/auth/login`, `/auth/me`, and `/auth/logout`
+  under `/api/v1`. Customer credentials use email; employee credentials use login.
+  Preserve existing BCrypt hashes and reject inactive staff with the same 401 as
+  unknown accounts and incorrect passwords. Credential queries use bound parameters.
+  Enforce the login password limit of 72 UTF-8 bytes without trimming passwords;
+  retain a BCrypt comparison against a dummy hash for unknown accounts.
+- `AuthService` owns credential lookup and account reloads; keep it independent of
+  HTTP. Sessions store `SessionIdentity` and an authenticated security context,
+  never passwords or hashes. Do not log login bodies or rejected password values.
+  Preserve no-store headers on authentication responses and controller-local
+  validation exception handling that avoids logging rejected passwords.
+- Login explicitly invokes the session authentication strategy (ID rotation and
+  CSRF reset) and saves the context through `SecurityContextRepository`. Logout
+  uses Spring logout handlers to clear CSRF, authentication, session, and cookie.
+  `/auth/me` reloads account details; deleted accounts or inactive staff invalidate
+  the session and return 401. Password changes do not revoke existing sessions.
+  Failed login and authentication database failures preserve an existing session;
+  database failures return 500 rather than invalidating it.
+- Granted authorities capture the role at login. `/auth/me` returns fresh account
+  details without updating those authorities. Any future role authorization must
+  explicitly address role changes in existing sessions.
+- Use in-memory HttpSession with cookie-only tracking. Preserve HttpOnly,
+  SameSite=Lax, host-only cookies scoped to `/api/v1`, configurable idle timeout,
+  and the configurable Secure flag. Enable Secure for HTTPS deployment.
+- Only authentication POSTs require `X-CSRF-TOKEN` from `/auth/csrf`. Fetch a fresh
+  token after login/logout. Query/form parameters cannot replace the header; a
+  missing or invalid header returns 403. Only GET `/auth/me` requires authentication.
+  Existing resource endpoints remain public and need no CSRF token; do not
+  introduce role/ownership restrictions without a separate task.
+- Preserve explicit credentialed CORS origins; never combine credentials with a
+  wildcard origin. Disable default login pages, HTTP Basic, and request redirects.
+- Verify with `./mvnw -Dtest=AuthSessionTest,AuthSecurityTest,ApiContextTest test`.
+  The real HTTP/MariaDB session tests require Docker; security configuration and
+  database-error tests also run without Docker. Keep existing seed data unchanged.
 
 ## Database and order invariants
 
