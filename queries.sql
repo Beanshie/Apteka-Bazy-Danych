@@ -86,3 +86,35 @@ WHERE NOT EXISTS (
     WHERE sz.id_produktu = p.id_produktu
 )
 ORDER BY wartosc_magazynowa DESC;
+
+-- ---------------- 6. Widoki - Katalog produktów i podsumowanie zamówień ----------------
+CREATE OR REPLACE VIEW v_katalog_produktow AS
+SELECT
+    p.id_produktu,
+    p.nazwa_produktu,
+    kat.nazwa_kategorii,
+    d.nazwa_firmy AS dostawca,
+    p.cena,
+    p.stan_magazynowy,
+    CASE
+        WHEN p.wymaga_recepty = 1 THEN 'Na receptę (Rx)'
+        ELSE 'Bez recepty (OTC)'
+    END AS typ_leku
+FROM Produkt p
+INNER JOIN Kategoria kat ON p.id_kategorii = kat.id_kategorii
+INNER JOIN Dostawca d ON p.id_dostawcy = d.id_dostawcy;
+
+CREATE OR REPLACE VIEW v_podsumowanie_zamowien AS
+SELECT
+    z.id_zamowienia,
+    z.data_zamowienia,
+    CONCAT(k.imie, ' ', k.nazwisko) AS klient,
+    CONCAT(a.ulica, ' ', a.numer_domu, IFNULL(CONCAT('/', a.numer_mieszkania), ''), ', ', a.kod_pocztowy, ' ', a.miasto) AS adres_dostawy,
+    z.status_zamowienia,
+    z.suma_calkowita,
+    pl.metoda_platnosci,
+    pl.status_platnosci
+FROM Zamowienie z
+INNER JOIN Klient k ON z.id_klienta = k.id_klienta
+INNER JOIN Adres_Klienta a ON z.id_adresu = a.id_adresu
+LEFT JOIN Platnosc pl ON z.id_zamowienia = pl.id_zamowienia;
