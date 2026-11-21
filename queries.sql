@@ -26,3 +26,25 @@ WHERE z.status_zamowienia <> 'ANULOWANE'
 GROUP BY kat.id_kategorii, kat.nazwa_kategorii
 HAVING SUM(sz.ilosc * sz.cena_jednostkowa) > 0
 ORDER BY laczny_przychod DESC;
+
+-- ---------------- 3. Zapytanie - Produkty droższe niż średnia w swojej kategorii ----------------
+SELECT
+    p.id_produktu,
+    p.nazwa_produktu,
+    kat.nazwa_kategorii,
+    d.nazwa_firmy AS dostawca,
+    p.cena,
+    (
+        SELECT ROUND(AVG(p2.cena), 2)
+        FROM Produkt p2
+        WHERE p2.id_kategorii = p.id_kategorii
+    ) AS srednia_cena_w_kategorii
+FROM Produkt p
+INNER JOIN Kategoria kat ON p.id_kategorii = kat.id_kategorii
+INNER JOIN Dostawca d ON p.id_dostawcy = d.id_dostawcy
+WHERE p.cena > (
+    SELECT AVG(p2.cena)
+    FROM Produkt p2
+    WHERE p2.id_kategorii = p.id_kategorii
+)
+ORDER BY kat.nazwa_kategorii, p.cena DESC;
