@@ -17,12 +17,12 @@ class ApiContextTest {
   @Autowired RequestMappingHandlerMapping mappings;
 
   @Test
-  void allResourceAndAuthenticationOperationsAreRegistered() {
+  void allFiftyResourceOperationsAreRegistered() {
     long operations =
         mappings.getHandlerMethods().values().stream()
             .filter(
                 method -> method.getBeanType().getPackageName().equals("pk.bd.apteka.controller"))
             .count();
-    assertEquals(54, operations);
+    assertEquals(50, operations);
   }
 }
