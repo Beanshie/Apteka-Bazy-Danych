@@ -1,9 +1,5 @@
--- ============================================================================
--- PROJEKT RELACYJNEJ BAZY DANYCH: APTEKA INTERNETOWA (10 TABEL)
+-- Plik inicjacyjny SQL
 -- Silnik: MariaDB / MySQL (InnoDB, UTF-8 utf8mb4)
--- Wersja: Nazewnictwo tabel w liczbie pojedynczej (zgodnie ze standardem akademickim)
--- ============================================================================
-
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS Platnosc;
@@ -19,18 +15,14 @@ DROP TABLE IF EXISTS Kategoria;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- ============================================================================
--- 1. KATEGORIA PRODUKTÓW
--- ============================================================================
+-- kategoria produktów
 CREATE TABLE Kategoria (
     id_kategorii     INT AUTO_INCREMENT PRIMARY KEY,
     nazwa_kategorii  VARCHAR(50) NOT NULL UNIQUE,
     opis             TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================================
--- 2. DOSTAWCA (HURTOWNIE I DYSTRYBUTORZY)
--- ============================================================================
+-- dostawca (hurtownie i dystrybutorzy)
 CREATE TABLE Dostawca (
     id_dostawcy INT AUTO_INCREMENT PRIMARY KEY,
     nazwa_firmy VARCHAR(100) NOT NULL,
@@ -39,9 +31,7 @@ CREATE TABLE Dostawca (
     email       VARCHAR(100) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================================
--- 3. PRACOWNIK APTEKI (FARMACEUTA, KIEROWNIK, ADMIN)
--- ============================================================================
+-- pracownik apteki (farmaceuta, kierownik, admin)
 CREATE TABLE Pracownik (
     id_pracownika INT AUTO_INCREMENT PRIMARY KEY,
     login         VARCHAR(50) NOT NULL UNIQUE,
@@ -53,9 +43,7 @@ CREATE TABLE Pracownik (
     CONSTRAINT chk_pracownik_rola CHECK (rola IN ('FARMACEUTA', 'KIEROWNIK', 'ADMIN'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================================
--- 4. KLIENT APTEKI
--- ============================================================================
+-- klient apteki
 CREATE TABLE Klient (
     id_klienta       INT AUTO_INCREMENT PRIMARY KEY,
     imie             VARCHAR(50) NOT NULL,
@@ -66,9 +54,7 @@ CREATE TABLE Klient (
     data_rejestracji DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================================
--- 5. ADRES KLIENTA (ZNORMALIZOWANA KSIĄŻKA ADRESOWA)
--- ============================================================================
+-- adres klienta (znormalizowana książka adresowa)
 CREATE TABLE Adres_Klienta (
     id_adresu        INT AUTO_INCREMENT PRIMARY KEY,
     id_klienta       INT NOT NULL,
@@ -83,9 +69,7 @@ CREATE TABLE Adres_Klienta (
 
 CREATE INDEX idx_adres_klient ON Adres_Klienta (id_klienta);
 
--- ============================================================================
--- 6. PRODUKT (KATALOG LEKÓW I SUPLEMENTÓW)
--- ============================================================================
+-- PRODUKT (KATALOG LEKÓW I SUPLEMENTÓW)
 CREATE TABLE Produkt (
     id_produktu      INT AUTO_INCREMENT PRIMARY KEY,
     id_kategorii     INT NOT NULL,
@@ -105,9 +89,7 @@ CREATE TABLE Produkt (
 CREATE INDEX idx_produkt_kategoria ON Produkt (id_kategorii);
 CREATE INDEX idx_produkt_dostawca ON Produkt (id_dostawcy);
 
--- ============================================================================
--- 7. RECEPTA LEKARSKA
--- ============================================================================
+-- recepta lekarska
 CREATE TABLE Recepta (
     id_recepty       INT AUTO_INCREMENT PRIMARY KEY,
     id_klienta       INT NOT NULL,
@@ -121,9 +103,7 @@ CREATE TABLE Recepta (
 
 CREATE INDEX idx_recepta_klient ON Recepta (id_klienta);
 
--- ============================================================================
--- 8. ZAMÓWIENIE (NAGŁÓWEK TRANSAKCJI)
--- ============================================================================
+-- zamówienie (nagłówek transakcji)
 CREATE TABLE Zamowienie (
     id_zamowienia     INT AUTO_INCREMENT PRIMARY KEY,
     id_klienta        INT NOT NULL,
@@ -142,9 +122,7 @@ CREATE TABLE Zamowienie (
 CREATE INDEX idx_zamowienie_klient ON Zamowienie (id_klienta);
 CREATE INDEX idx_zamowienie_status ON Zamowienie (status_zamowienia);
 
--- ============================================================================
--- 9. SZCZEGÓŁ ZAMÓWIENIA (POZYCJA W KOSZYKU ZAMÓWIENIA)
--- ============================================================================
+-- szczegół zamówienia (pozycja w koszyku zamówienia)
 CREATE TABLE Szczegol_Zamowienia (
     id_szczegolu     INT AUTO_INCREMENT PRIMARY KEY,
     id_zamowienia    INT NOT NULL,
@@ -166,9 +144,7 @@ CREATE TABLE Szczegol_Zamowienia (
 CREATE INDEX idx_szczegol_produkt ON Szczegol_Zamowienia (id_produktu);
 CREATE INDEX idx_szczegol_recepta ON Szczegol_Zamowienia (id_recepty);
 
--- ============================================================================
--- 10. PŁATNOŚĆ TRANSAKCYJNA
--- ============================================================================
+-- płatność transakcyjna
 CREATE TABLE Platnosc (
     id_platnosci     INT AUTO_INCREMENT PRIMARY KEY,
     id_zamowienia    INT NOT NULL UNIQUE,
@@ -179,5 +155,3 @@ CREATE TABLE Platnosc (
         REFERENCES Zamowienie (id_zamowienia) ON DELETE CASCADE,
     CONSTRAINT chk_platnosc_status CHECK (status_platnosci IN ('OCZEKUJACA', 'OPLACONA', 'NIEUDANA', 'ZWROCONA'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- xd
