@@ -1,0 +1,40 @@
+services:
+
+  frontend:
+    build: frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - backend
+
+  backend:
+    build: backend
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb-db:3306/Apteka  # Zmiana z localhost na mariadb-db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=haslo
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.mariadb.jdbc.Driver
+    depends_on:
+      mariadb-db:
+        condition: service_healthy
+
+  mariadb-db:
+    image: mariadb:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=haslo
+      - MYSQL_DATABASE=Apteka
+    ports:
+      - "127.0.0.1:3307:3306"  # Przekierowanie na port 3307 na hoście uniknie konfliktu z Ubuntu
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mariadb_data:
+

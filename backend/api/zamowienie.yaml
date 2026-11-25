@@ -1,0 +1,262 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — Zamowienie
+  version: 2.0.0
+  description: Nagłówki zamówień. Pozycje są zarządzane przez osobne endpointy;
+    suma jest utrzymywana przez backend.
+servers:
+- url: /api/v1
+paths:
+  /zamowienia:
+    get:
+      tags:
+      - Zamowienie
+      operationId: listZamowienie
+      summary: Lista — Zamowienie
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Zamowienie'
+      parameters:
+      - name: id_klienta
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+      - name: status_zamowienia
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: &id001
+          - NOWE
+          - OPLACONE
+          - W_REALIZACJI
+          - WYSLANE
+          - ZREALIZOWANE
+          - ANULOWANE
+    post:
+      tags:
+      - Zamowienie
+      operationId: createZamowienie
+      summary: Utworzenie — Zamowienie
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zamowienie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZamowienieCreate'
+  /zamowienia/{id_zamowienia}:
+    parameters:
+    - name: id_zamowienia
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Zamowienie
+      operationId: getZamowienie
+      summary: Pobranie — Zamowienie
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zamowienie'
+    put:
+      tags:
+      - Zamowienie
+      operationId: updateZamowienie
+      summary: Aktualizacja — Zamowienie
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Zamowienie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZamowienieUpdate'
+      description: Zastępuje edytowalne pola nagłówka, zachowując istniejące pozycje,
+        ich identyfikatory i ceny. Zmiana statusu dostosowuje rezerwację magazynową.
+    delete:
+      tags:
+      - Zamowienie
+      operationId: deleteZamowienie
+      summary: Usunięcie — Zamowienie
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób lub zasób już nie istnieje.
+      description: Usuwa zamówienie wraz z pozycjami i płatnością, zwalniając rezerwację magazynową.
+components:
+  schemas:
+    Zamowienie:
+      type: object
+      properties:
+        id_zamowienia:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_adresu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        data_zamowienia:
+          type: string
+          format: date-time
+          example: '2026-10-01T10:15:00Z'
+          description: Data i czas; warstwa API odpowiada za konwersję strefy czasowej
+            dla MariaDB DATETIME.
+          readOnly: true
+        status_zamowienia:
+          type: string
+          default: NOWE
+          enum: *id001
+        suma_calkowita:
+          type: number
+          minimum: 0
+          maximum: 99999999.99
+          multipleOf: 0.01
+          example: 12.5
+          default: 0.0
+          readOnly: true
+      required:
+      - id_zamowienia
+      - id_klienta
+      - id_adresu
+      - data_zamowienia
+      - status_zamowienia
+      - suma_calkowita
+    ZamowienieCreate:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_adresu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        status_zamowienia:
+          type: string
+          default: NOWE
+          enum:
+          - NOWE
+          - OPLACONE
+          - W_REALIZACJI
+          - WYSLANE
+          - ZREALIZOWANE
+          - ANULOWANE
+      required:
+      - id_klienta
+      - id_adresu
+    ZamowienieUpdate:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        id_adresu:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        status_zamowienia:
+          type: string
+          enum:
+          - NOWE
+          - OPLACONE
+          - W_REALIZACJI
+          - WYSLANE
+          - ZREALIZOWANE
+          - ANULOWANE
+      required:
+      - id_klienta
+      - id_adresu
+      - status_zamowienia

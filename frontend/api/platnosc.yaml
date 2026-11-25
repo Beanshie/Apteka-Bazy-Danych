@@ -1,0 +1,253 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — Platnosc
+  version: 2.0.0
+  description: Jedna płatność na zamówienie (unikalne id_zamowienia).
+servers:
+- url: /api/v1
+paths:
+  /platnosci:
+    get:
+      tags:
+      - Platnosc
+      operationId: listPlatnosc
+      summary: Lista — Platnosc
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Platnosc'
+      parameters:
+      - name: id_zamowienia
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+    post:
+      tags:
+      - Platnosc
+      operationId: createPlatnosc
+      summary: Utworzenie — Platnosc
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Platnosc'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatnoscCreate'
+  /platnosci/{id_platnosci}:
+    parameters:
+    - name: id_platnosci
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Platnosc
+      operationId: getPlatnosc
+      summary: Pobranie — Platnosc
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Platnosc'
+    put:
+      tags:
+      - Platnosc
+      operationId: updatePlatnosc
+      summary: Aktualizacja — Platnosc
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Platnosc'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatnoscUpdate'
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone.
+    delete:
+      tags:
+      - Platnosc
+      operationId: deletePlatnosc
+      summary: Usunięcie — Platnosc
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Usuwa wskazany zasób.
+components:
+  schemas:
+    Platnosc:
+      type: object
+      properties:
+        id_platnosci:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        id_zamowienia:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        metoda_platnosci:
+          type: string
+          maxLength: 30
+        status_platnosci:
+          type: string
+          maxLength: 30
+          default: OCZEKUJACA
+          enum:
+          - OCZEKUJACA
+          - OPLACONA
+          - NIEUDANA
+          - ZWROCONA
+        data_platnosci:
+          type: string
+          format: date-time
+          example: '2026-10-01T10:15:00Z'
+          description: Data i czas; warstwa API odpowiada za konwersję strefy czasowej
+            dla MariaDB DATETIME.
+          nullable: true
+      required:
+      - id_platnosci
+      - id_zamowienia
+      - metoda_platnosci
+      - status_platnosci
+      - data_platnosci
+    PlatnoscCreate:
+      type: object
+      properties:
+        id_zamowienia:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        metoda_platnosci:
+          type: string
+          maxLength: 30
+        status_platnosci:
+          type: string
+          maxLength: 30
+          default: OCZEKUJACA
+          enum:
+          - OCZEKUJACA
+          - OPLACONA
+          - NIEUDANA
+          - ZWROCONA
+        data_platnosci:
+          type: string
+          format: date-time
+          example: '2026-10-01T10:15:00Z'
+          description: Data i czas; warstwa API odpowiada za konwersję strefy czasowej
+            dla MariaDB DATETIME.
+          nullable: true
+      required:
+      - id_zamowienia
+      - metoda_platnosci
+    PlatnoscUpdate:
+      type: object
+      properties:
+        id_zamowienia:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+        metoda_platnosci:
+          type: string
+          maxLength: 30
+        status_platnosci:
+          type: string
+          maxLength: 30
+          enum:
+          - OCZEKUJACA
+          - OPLACONA
+          - NIEUDANA
+          - ZWROCONA
+        data_platnosci:
+          type: string
+          format: date-time
+          example: '2026-10-01T10:15:00Z'
+          description: Data i czas; warstwa API odpowiada za konwersję strefy czasowej
+            dla MariaDB DATETIME.
+          nullable: true
+      required:
+      - id_zamowienia
+      - metoda_platnosci
+      - status_platnosci

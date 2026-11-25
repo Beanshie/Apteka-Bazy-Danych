@@ -1,0 +1,240 @@
+openapi: 3.0.3
+info:
+  title: API Apteki — Klient
+  version: 2.0.0
+  description: Konto klienta identyfikowane unikalnym adresem email. Adresy są osobnym
+    zasobem.
+servers:
+- url: /api/v1
+paths:
+  /klienci:
+    get:
+      tags:
+      - Klient
+      operationId: listKlient
+      summary: Lista — Klient
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Klient'
+    post:
+      tags:
+      - Klient
+      operationId: createKlient
+      summary: Utworzenie — Klient
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '201':
+          description: Utworzono zasób.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Klient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KlientCreate'
+  /klienci/{id_klienta}:
+    parameters:
+    - name: id_klienta
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    get:
+      tags:
+      - Klient
+      operationId: getKlient
+      summary: Pobranie — Klient
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Klient'
+    put:
+      tags:
+      - Klient
+      operationId: updateKlient
+      summary: Aktualizacja — Klient
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '200':
+          description: Operacja zakończona pomyślnie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Klient'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KlientUpdate'
+      description: Zastępuje wszystkie edytowalne dane zasobu. Pola nullable pominięte
+        lub ustawione na null są czyszczone. Hasło null zachowuje dotychczasowe hasło.
+    delete:
+      tags:
+      - Klient
+      operationId: deleteKlient
+      summary: Usunięcie — Klient
+      responses:
+        '400':
+          description: Błędne dane wejściowe, status lub powiązanie; brak wymaganej
+            recepty albo niewystarczający stan magazynowy dla operacji na pozycjach.
+        '401':
+          description: Brak autoryzacji.
+        '500':
+          description: Wewnętrzny błąd serwera.
+        '404':
+          description: Nie znaleziono zasobu lub wskazanego powiązanego rekordu.
+        '409':
+          description: Konflikt unikalności lub operacja zablokowana przez powiązane
+            rekordy.
+        '204':
+          description: Usunięto zasób.
+      description: Usuwa adresy i recepty klienta kaskadowo. Istniejące zamówienia
+        lub adresy użyte w zamówieniach blokują usunięcie (409).
+components:
+  schemas:
+    Klient:
+      type: object
+      properties:
+        id_klienta:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 1
+          readOnly: true
+        imie:
+          type: string
+          maxLength: 50
+        nazwisko:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          maxLength: 100
+          format: email
+        telefon:
+          type: string
+          maxLength: 20
+          nullable: true
+        data_rejestracji:
+          type: string
+          format: date-time
+          example: '2026-10-01T10:15:00Z'
+          description: Data i czas; warstwa API odpowiada za konwersję strefy czasowej
+            dla MariaDB DATETIME.
+          readOnly: true
+      required:
+      - id_klienta
+      - imie
+      - nazwisko
+      - email
+      - telefon
+      - data_rejestracji
+    KlientCreate:
+      type: object
+      properties:
+        imie:
+          type: string
+          maxLength: 50
+        nazwisko:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          maxLength: 100
+          format: email
+        haslo:
+          type: string
+          maxLength: 255
+          format: password
+          writeOnly: true
+          description: Hasło wejściowe; backend zapisuje wyłącznie jego skrót.
+        telefon:
+          type: string
+          maxLength: 20
+          nullable: true
+      required:
+      - imie
+      - nazwisko
+      - email
+      - haslo
+    KlientUpdate:
+      type: object
+      properties:
+        imie:
+          type: string
+          maxLength: 50
+        nazwisko:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          maxLength: 100
+          format: email
+        haslo:
+          type: string
+          maxLength: 255
+          format: password
+          writeOnly: true
+          description: Nowe hasło. Null lub pominięcie zachowuje dotychczasowe hasło.
+          nullable: true
+        telefon:
+          type: string
+          maxLength: 20
+          nullable: true
+      required:
+      - imie
+      - nazwisko
+      - email

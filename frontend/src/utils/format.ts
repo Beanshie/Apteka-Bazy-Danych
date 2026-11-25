@@ -1,0 +1,1 @@
+export const zl = (n: number) => n.toFixed(2).replace('.', ',') + ' zł';
