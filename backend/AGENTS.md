@@ -25,6 +25,10 @@ Check the current implementation, migrations, and tests when changing behavior.
 - Change API contracts in `api/*.yaml`, then regenerate sources through Maven.
   Do not edit generated files under `target/`. Generation cleans the output once
   and preserves earlier resources during subsequent specification executions.
+- Springdoc serves public Swagger UI at `/api/v1/swagger-ui.html` and OpenAPI JSON
+  at `/api/v1/v3/api-docs` (default host: `http://localhost:8080`). Let the springdoc
+  starter supply matching Swagger libraries; do not pin an older
+  `swagger-annotations` version that conflicts with its Swagger core.
 - Preserve the `/api/v1` API and existing Polish resource and field names unless
   the task requests a contract change. PUT replaces writable fields; retain each
   resource's documented null and omission behavior.
@@ -163,6 +167,15 @@ Check the current implementation, migrations, and tests when changing behavior.
 ./mvnw generate-sources
 ./mvnw test
 ```
+
+For changes affecting springdoc dependencies, documentation routes, or Swagger UI, run:
+
+```sh
+./mvnw -Dtest=SpringdocTest,ApiContextTest test
+```
+
+These checks run without Docker or a database connection and cover documentation
+generation, UI resources, context-path URLs, and application route registration.
 
 For changes affecting orders, item mutations, or triggers, run:
 

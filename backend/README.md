@@ -26,6 +26,13 @@ execution per specification and resource tags to generate separate interfaces
 in `target/generated-sources/openapi`. The first execution cleans that directory;
 subsequent executions preserve previously generated files.
 
+With the backend running on its default port 8080, open
+[Swagger UI](http://localhost:8080/api/v1/swagger-ui.html) or
+[OpenAPI JSON](http://localhost:8080/api/v1/v3/api-docs).
+Adjust the host and port if configured differently. Both documentation endpoints are public.
+The springdoc starter supplies matching Swagger libraries, including annotations;
+do not override them with an older `swagger-annotations` dependency.
+
 The version 2.0.0 contracts use `/api/v1`, database field names, `/produkty`
 instead of `/leki`, and `/zamowienia/{id_zamowienia}/pozycje` for order items.
 Each collection supports GET/POST; each individual resource supports GET/PUT/DELETE.
