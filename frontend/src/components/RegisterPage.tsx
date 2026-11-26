@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
+const MAX_PASSWORD_BYTES = 72;
+
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -18,6 +20,12 @@ export const RegisterPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (new TextEncoder().encode(haslo).length > MAX_PASSWORD_BYTES) {
+      setError('Hasło może mieć maksymalnie 72 bajty (UTF-8).');
+      return;
+    }
+
     setLoading(true);
     try {
       await register({
@@ -34,6 +42,8 @@ export const RegisterPage: React.FC = () => {
           setError('Konto z podanym adresem e-mail już istnieje.');
         } else if (err.response?.status === 400) {
           setError('Nieprawidłowe dane formularza. Sprawdź wszystkie pola.');
+        } else if (err.response?.status === 403) {
+          setError('Błąd weryfikacji sesji (CSRF) po utworzeniu konta. Zaloguj się ręcznie.');
         } else {
           setError('Błąd serwera podczas rejestracji konta.');
         }
@@ -118,7 +128,7 @@ export const RegisterPage: React.FC = () => {
               id="haslo"
               type="password"
               required
-              maxLength={255}
+              maxLength={MAX_PASSWORD_BYTES}
               value={haslo}
               onChange={(e) => setHaslo(e.target.value)}
               placeholder="••••••••"
