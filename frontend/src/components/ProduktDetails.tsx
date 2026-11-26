@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import type { Produkt } from '../types/produkt';
+import type { Kategoria } from '../types/kategoria';
+import type { Dostawca } from '../types/dostawca';
 import { produktyService } from '../services/produktyService';
+import { kategorieService } from '../services/kategorieService';
+import { dostawcyService } from '../services/dostawcyService';
 import { useCart } from '../context/CartContext';
 import { RxBadge, StockBadge } from './Badges';
 import { zl } from '../utils/format';
@@ -11,27 +15,50 @@ export const ProduktDetails: React.FC = () => {
   const { id } = useParams();
   const { items, add } = useCart();
   const [produkt, setProdukt] = useState<Produkt | null>(null);
+  const [kategoria, setKategoria] = useState<Kategoria | null>(null);
+  const [dostawca, setDostawca] = useState<Dostawca | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
+    setKategoria(null);
+    setDostawca(null);
     setQty(1);
     setAdded(false);
+
     produktyService
       .getById(Number(id))
-      .then(setProdukt)
-      .catch((err) =>
+      .then(async (data) => {
+        if (!active) return;
+        setProdukt(data);
+        const [kat, dost] = await Promise.all([
+          kategorieService.getById(data.id_kategorii).catch(() => null),
+          dostawcyService.getById(data.id_dostawcy).catch(() => null),
+        ]);
+        if (!active) return;
+        setKategoria(kat);
+        setDostawca(dost);
+      })
+      .catch((err) => {
+        if (!active) return;
         setError(
           axios.isAxiosError(err) && err.response?.status === 404
             ? 'Nie znaleziono produktu o podanym ID.'
             : 'Nie udało się pobrać danych produktu.',
-        ),
-      )
-      .finally(() => setLoading(false));
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   if (loading) {
@@ -157,8 +184,8 @@ export const ProduktDetails: React.FC = () => {
             ['Dostępność', `${stock} szt.`],
             ['Wydawany z receptą', produkt.wymaga_recepty ? 'Tak' : 'Nie'],
             ['ID', `#${produkt.id_produktu}`],
-            ['ID kategorii', `#${produkt.id_kategorii}`],
-            ['ID dostawcy', `#${produkt.id_dostawcy}`],
+            ['Kategoria', kategoria ? kategoria.nazwa_kategorii : `#${produkt.id_kategorii}`],
+            ['Dostawca', dostawca ? dostawca.nazwa_firmy : `#${produkt.id_dostawcy}`],
           ].map(([k, v]) => (
             <div key={k} className="grid grid-cols-[200px_1fr] py-2.5">
               <dt className="text-slate-500">{k}</dt>

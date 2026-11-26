@@ -22,4 +22,8 @@ export const produktyService = {
         const response = await axios.get(`${API_URL}/${id}`);
         return response.data;
     },
+
+    delete: async (id: number): Promise<void> => {
+        await axios.delete(`${API_URL}/${id}`);
+    },
 };

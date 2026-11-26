@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Produkt } from '../types/produkt';
+import type { Kategoria } from '../types/kategoria';
 import { produktyService } from '../services/produktyService';
+import { kategorieService } from '../services/kategorieService';
 import { Link, useNavigate } from 'react-router-dom';
 import { RxBadge, StockBadge } from './Badges';
 import { zl } from '../utils/format';
 
 type Status = 'connecting' | 'success' | 'error';
+type RxFilter = 'all' | 'rx' | 'otc';
 
 const STATUS: Record<Status, { badge: string; dot: string; label: string }> = {
   connecting: {
@@ -28,17 +31,26 @@ const STATUS: Record<Status, { badge: string; dot: string; label: string }> = {
 export const ProduktyList: React.FC = () => {
   const navigate = useNavigate();
   const [produkty, setProdukty] = useState<Produkt[]>([]);
+  const [kategorie, setKategorie] = useState<Kategoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<Status>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [selectedKategoria, setSelectedKategoria] = useState<string>('');
+  const [rxFilter, setRxFilter] = useState<RxFilter>('all');
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setStatus('connecting');
     try {
-      setProdukty(await produktyService.getAll());
+      const [produktyData, kategorieData] = await Promise.all([
+        produktyService.getAll(),
+        kategorieService.getAll().catch(() => [] as Kategoria[]),
+      ]);
+      setProdukty(produktyData);
+      setKategorie(kategorieData);
       setStatus('success');
     } catch (err) {
       console.error(err);
@@ -54,51 +66,131 @@ export const ProduktyList: React.FC = () => {
     load();
   }, [load]);
 
+  const hasActiveFilters =
+    query.trim() !== '' ||
+    selectedKategoria !== '' ||
+    rxFilter !== 'all' ||
+    onlyAvailable;
+
+  const clearFilters = () => {
+    setQuery('');
+    setSelectedKategoria('');
+    setRxFilter('all');
+    setOnlyAvailable(false);
+  };
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    if (!q) return produkty;
-    return produkty.filter(
-      (l) =>
-        l.nazwa_produktu?.toLowerCase().includes(q) ||
-        String(l.id_produktu) === q,
-    );
-  }, [produkty, query]);
+    const kategoriaId = selectedKategoria ? Number(selectedKategoria) : null;
+
+    return produkty.filter((l) => {
+      if (
+        q &&
+        !l.nazwa_produktu?.toLowerCase().includes(q) &&
+        String(l.id_produktu) !== q
+      ) {
+        return false;
+      }
+      if (kategoriaId !== null && l.id_kategorii !== kategoriaId) {
+        return false;
+      }
+      if (rxFilter === 'rx' && !l.wymaga_recepty) {
+        return false;
+      }
+      if (rxFilter === 'otc' && l.wymaga_recepty) {
+        return false;
+      }
+      if (onlyAvailable && (l.stan_magazynowy ?? 0) <= 0) {
+        return false;
+      }
+      return true;
+    });
+  }, [produkty, query, selectedKategoria, rxFilter, onlyAvailable]);
 
   const st = STATUS[status];
 
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200/80 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200/80 space-y-4">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Szukaj według nazwy lub ID..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400"
+            />
           </div>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj według nazwy lub ID..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400"
-          />
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${st.badge}`}>
+              <span className={`w-2 h-2 rounded-full ${st.dot}`} />
+              <span>{st.label}</span>
+            </div>
+            <button
+              onClick={load}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-medium text-sm rounded-xl transition-all shadow-sm hover:shadow-md shadow-teal-600/20"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Odśwież</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${st.badge}`}>
-            <span className={`w-2 h-2 rounded-full ${st.dot}`} />
-            <span>{st.label}</span>
-          </div>
-          <button
-            onClick={load}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-medium text-sm rounded-xl transition-all shadow-sm hover:shadow-md shadow-teal-600/20"
+        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+          <select
+            aria-label="Filtruj według kategorii"
+            value={selectedKategoria}
+            onChange={(e) => setSelectedKategoria(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
           >
-            <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>Odśwież</span>
-          </button>
+            <option value="">Wszystkie kategorie</option>
+            {kategorie.map((k) => (
+              <option key={k.id_kategorii} value={k.id_kategorii}>
+                {k.nazwa_kategorii}
+              </option>
+            ))}
+          </select>
+
+          <select
+            aria-label="Filtruj według typu recepty"
+            value={rxFilter}
+            onChange={(e) => setRxFilter(e.target.value as RxFilter)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+          >
+            <option value="all">Wszystkie (Rx i OTC)</option>
+            <option value="rx">Na receptę (Rx)</option>
+            <option value="otc">Bez recepty (OTC)</option>
+          </select>
+
+          <label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={onlyAvailable}
+              onChange={(e) => setOnlyAvailable(e.target.checked)}
+              className="accent-teal-600 rounded"
+            />
+            <span>Tylko dostępne</span>
+          </label>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-rose-600 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all"
+            >
+              Wyczyść filtry
+            </button>
+          )}
         </div>
       </div>
 
