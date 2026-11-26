@@ -25,19 +25,16 @@ export interface Zamowienie {
   data_zamowienia: string;
   status_zamowienia: StatusZamowienia;
   suma_calkowita: number;
-  pozycje: SzczegolZamowienia[];
 }
 
 export interface ZamowienieCreate {
   id_klienta: number;
   id_adresu: number;
   status_zamowienia?: StatusZamowienia;
-  pozycje: SzczegolZamowieniaCreate[];
 }
 
 export interface ZamowienieUpdate {
   id_klienta: number;
   id_adresu: number;
   status_zamowienia: StatusZamowienia;
-  pozycje: SzczegolZamowieniaCreate[];
 }

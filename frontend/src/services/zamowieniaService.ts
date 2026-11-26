@@ -1,6 +1,8 @@
 import axios from 'axios';
 import type {
     StatusZamowienia,
+    SzczegolZamowienia,
+    SzczegolZamowieniaCreate,
     Zamowienie,
     ZamowienieCreate,
     ZamowienieUpdate,
@@ -29,6 +31,19 @@ export const zamowieniaService = {
         return response.data;
     },
 
+    getPozycje: async (idZamowienia: number): Promise<SzczegolZamowienia[]> => {
+        const response = await axios.get(`${API_URL}/${idZamowienia}/pozycje`);
+        return response.data;
+    },
+
+    addPozycja: async (
+        idZamowienia: number,
+        pozycja: SzczegolZamowieniaCreate,
+    ): Promise<SzczegolZamowienia> => {
+        const response = await axios.post(`${API_URL}/${idZamowienia}/pozycje`, pozycja);
+        return response.data;
+    },
+
     create: async (zamowienie: ZamowienieCreate): Promise<Zamowienie> => {
         const response = await axios.post(API_URL, zamowienie);
         return response.data;
@@ -45,11 +60,6 @@ export const zamowieniaService = {
             id_klienta: current.id_klienta,
             id_adresu: current.id_adresu,
             status_zamowienia: 'ANULOWANE',
-            pozycje: current.pozycje.map((p) => ({
-                id_produktu: p.id_produktu,
-                id_recepty: p.id_recepty,
-                ilosc: p.ilosc,
-            })),
         };
         const response = await axios.put(`${API_URL}/${id}`, payload);
         return response.data;
