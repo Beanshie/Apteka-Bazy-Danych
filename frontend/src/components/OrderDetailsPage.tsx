@@ -6,7 +6,7 @@ import { produktyService } from '../services/produktyService';
 import { adresyService } from '../services/adresyService';
 import { receptyService } from '../services/receptyService';
 import { platnosciService } from '../services/platnosciService';
-import type { Zamowienie } from '../types/zamowienie';
+import type { SzczegolZamowienia, Zamowienie } from '../types/zamowienie';
 import type { Produkt } from '../types/produkt';
 import type { AdresKlienta } from '../types/adres_klienta';
 import type { Recepta } from '../types/recepta';
@@ -31,6 +31,7 @@ export const OrderDetailsPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
   const [zamowienie, setZamowienie] = useState<Zamowienie | null>(null);
+  const [pozycje, setPozycje] = useState<SzczegolZamowienia[]>([]);
   const [produktyMap, setProduktyMap] = useState<Record<number, Produkt>>({});
   const [adres, setAdres] = useState<AdresKlienta | null>(null);
   const [receptyMap, setReceptyMap] = useState<Record<number, Recepta>>({});
@@ -51,12 +52,14 @@ export const OrderDetailsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [orderData, produktyList] = await Promise.all([
+      const [orderData, pozycjeData, produktyList] = await Promise.all([
         zamowieniaService.getById(orderId),
+        zamowieniaService.getPozycje(orderId),
         produktyService.getAll().catch(() => [] as Produkt[]),
       ]);
 
       setZamowienie(orderData);
+      setPozycje(pozycjeData);
 
       const pMap: Record<number, Produkt> = {};
       for (const p of produktyList) {
@@ -85,7 +88,7 @@ export const OrderDetailsPage: React.FC = () => {
       // Pobranie recept przypisanych do pozycji zamówienia (jeśli występują)
       const rxIds = Array.from(
         new Set(
-          (orderData.pozycje ?? [])
+          pozycjeData
             .map((poz) => poz.id_recepty)
             .filter((rxId): rxId is number => rxId !== null && rxId !== undefined),
         ),
@@ -304,7 +307,7 @@ export const OrderDetailsPage: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-900">
-            Pozycje zamówienia ({zamowienie.pozycje?.length ?? 0})
+            Pozycje zamówienia ({pozycje.length})
           </h3>
         </div>
 
@@ -320,7 +323,7 @@ export const OrderDetailsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {(zamowienie.pozycje ?? []).map((pozycja) => {
+              {pozycje.map((pozycja) => {
                 const prod = produktyMap[pozycja.id_produktu];
                 const recepta =
                   pozycja.id_recepty != null

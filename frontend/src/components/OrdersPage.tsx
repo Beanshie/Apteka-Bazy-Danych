@@ -149,7 +149,6 @@ export const OrdersPage: React.FC = () => {
                   <th className="py-3.5 px-4 sm:px-6">Zamówienie</th>
                   <th className="py-3.5 px-4 sm:px-6">Data złożenia</th>
                   <th className="py-3.5 px-4 sm:px-6">Status</th>
-                  <th className="py-3.5 px-4 sm:px-6">Pozycje</th>
                   <th className="py-3.5 px-4 sm:px-6">Kwota całkowita</th>
                   <th className="py-3.5 px-4 sm:px-6 text-right">Akcje</th>
                 </tr>
@@ -171,9 +170,6 @@ export const OrdersPage: React.FC = () => {
                     </td>
                     <td className="py-4 px-4 sm:px-6 whitespace-nowrap">
                       <OrderStatusBadge status={zamowienie.status_zamowienia} />
-                    </td>
-                    <td className="py-4 px-4 sm:px-6 text-slate-600">
-                      {zamowienie.pozycje?.length ?? 0}
                     </td>
                     <td className="py-4 px-4 sm:px-6 font-semibold text-slate-900 whitespace-nowrap">
                       {zl(zamowienie.suma_calkowita)}
