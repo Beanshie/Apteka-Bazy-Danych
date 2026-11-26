@@ -20,18 +20,18 @@ const formatDatePl = (iso: string) => {
 
 export const OrdersPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, isKlient } = useAuth();
 
   const [zamowienia, setZamowienia] = useState<Zamowienie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user || !isKlient) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await zamowieniaService.getByKlientId(user.id_klienta);
+      const data = await zamowieniaService.getByKlientId(user.id);
       setZamowienia(data);
     } catch (err) {
       console.error(err);
@@ -43,7 +43,7 @@ export const OrdersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isKlient]);
 
   useEffect(() => {
     load();
@@ -59,8 +59,30 @@ export const OrdersPage: React.FC = () => {
     });
   }, [zamowienia]);
 
+  if (authLoading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-20 flex flex-col items-center justify-center gap-3">
+        <div className="w-9 h-9 border-[3px] border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium text-slate-600">Sprawdzanie sesji...</p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!isKlient) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-16 text-center space-y-3">
+        <p className="text-slate-700 font-medium">
+          Historia zamówień klienta jest dostępna wyłącznie dla kont klientów.
+        </p>
+        <Link to="/" className="inline-block text-sm font-medium text-teal-700 hover:underline">
+          Wróć do listy produktów
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -69,7 +91,7 @@ export const OrdersPage: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900">Moje zamówienia</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Historia zamówień dla konta {user.imie} {user.nazwisko} ({user.email})
+            Historia zamówień dla konta {user.imie} {user.nazwisko} ({user.identyfikator})
           </p>
         </div>
 
@@ -195,7 +217,7 @@ export const OrdersPage: React.FC = () => {
         <div className="bg-slate-50/50 px-4 sm:px-6 py-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
           <span>Łącznie zamówień: {sorted.length}</span>
           <span className="font-mono text-[11px] text-slate-400">
-            Endpoint: /api/v1/zamowienia?id_klienta={user.id_klienta}
+            Endpoint: /api/v1/zamowienia?id_klienta={user.id}
           </span>
         </div>
       </div>

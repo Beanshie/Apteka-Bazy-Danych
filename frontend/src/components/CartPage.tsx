@@ -6,7 +6,7 @@ import { zl } from '../utils/format';
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, count, total, setQuantity, remove, clear } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isKlient } = useAuth();
 
   if (items.length === 0) {
     return (
@@ -81,12 +81,17 @@ export const CartPage: React.FC = () => {
         </div>
         <button
           type="button"
-          disabled={items.length === 0}
+          disabled={items.length === 0 || (isAuthenticated && !isKlient)}
           onClick={() => navigate(isAuthenticated ? '/zamowienie/nowe' : '/login')}
           className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-all shadow-sm hover:shadow-md shadow-teal-600/20"
         >
           Złóż zamówienie
         </button>
+        {isAuthenticated && !isKlient && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+            Składanie zamówień jest dostępne wyłącznie dla kont klientów.
+          </p>
+        )}
       </aside>
     </div>
   );

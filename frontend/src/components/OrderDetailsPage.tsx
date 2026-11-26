@@ -28,7 +28,7 @@ const formatDatePl = (iso: string) => {
 
 export const OrderDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
 
   const [zamowienie, setZamowienie] = useState<Zamowienie | null>(null);
   const [pozycje, setPozycje] = useState<SzczegolZamowienia[]>([]);
@@ -128,6 +128,15 @@ export const OrderDetailsPage: React.FC = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  if (authLoading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-20 flex flex-col items-center justify-center gap-3">
+        <div className="w-9 h-9 border-[3px] border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium text-slate-600">Sprawdzanie sesji...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;

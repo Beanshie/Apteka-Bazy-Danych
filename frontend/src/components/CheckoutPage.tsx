@@ -20,7 +20,7 @@ const METODY_PLATNOSCI = [
 ] as const;
 
 export const CheckoutPage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, loading: authLoading, isAuthenticated, isKlient } = useAuth();
   const { items, count, total, clear } = useCart();
 
   const [adresy, setAdresy] = useState<AdresKlienta[]>([]);
@@ -53,10 +53,10 @@ export const CheckoutPage: React.FC = () => {
   );
 
   const loadAdresy = useCallback(async () => {
-    if (!user) return;
+    if (!user || !isKlient) return;
     setLoadingAdresy(true);
     try {
-      const list = await adresyService.getAll({ id_klienta: user.id_klienta });
+      const list = await adresyService.getAll({ id_klienta: user.id });
       setAdresy(list);
       if (list.length > 0) {
         setSelectedAdresId(list[0].id_adresu);
@@ -70,14 +70,36 @@ export const CheckoutPage: React.FC = () => {
     } finally {
       setLoadingAdresy(false);
     }
-  }, [user]);
+  }, [user, isKlient]);
 
   useEffect(() => {
     loadAdresy();
   }, [loadAdresy]);
 
+  if (authLoading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-20 flex flex-col items-center justify-center gap-3">
+        <div className="w-9 h-9 border-[3px] border-teal-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium text-slate-600">Sprawdzanie sesji...</p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!isKlient) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-16 text-center space-y-3">
+        <p className="text-slate-700 font-medium">
+          Składanie zamówień jest dostępne wyłącznie dla kont klientów.
+        </p>
+        <Link to="/" className="inline-block text-sm font-medium text-teal-700 hover:underline">
+          Wróć do listy produktów
+        </Link>
+      </div>
+    );
   }
 
   // Ekran potwierdzenia po złożeniu zamówienia
@@ -164,7 +186,7 @@ export const CheckoutPage: React.FC = () => {
     setSavingAdres(true);
     try {
       const created = await adresyService.create({
-        id_klienta: user.id_klienta,
+        id_klienta: user.id,
         ulica: ulica.trim(),
         numer_domu: numerDomu.trim(),
         numer_mieszkania: numerMieszkania.trim() ? numerMieszkania.trim() : null,
@@ -234,7 +256,7 @@ export const CheckoutPage: React.FC = () => {
         const trimmedPesel = peselPacjenta.trim();
 
         const existingRecepty = await receptyService.getAll({
-          id_klienta: user.id_klienta,
+          id_klienta: user.id,
           kod_recepty: trimmedCode,
         });
         const validExisting = existingRecepty.find(
@@ -245,7 +267,7 @@ export const CheckoutPage: React.FC = () => {
           idRecepty = validExisting.id_recepty;
         } else {
           const nowaRecepta = await receptyService.create({
-            id_klienta: user.id_klienta,
+            id_klienta: user.id,
             kod_recepty: trimmedCode,
             pesel_pacjenta: trimmedPesel,
             status_recepty: 'NOWA',
@@ -256,7 +278,7 @@ export const CheckoutPage: React.FC = () => {
 
       // 3. Utworzenie nagłówka zamówienia (POST /api/v1/zamowienia) i dodanie pozycji
       const naglowekZamowienia = await zamowieniaService.create({
-        id_klienta: user.id_klienta,
+        id_klienta: user.id,
         id_adresu: finalAdresId,
         status_zamowienia: 'NOWE',
       });
@@ -321,7 +343,7 @@ export const CheckoutPage: React.FC = () => {
           <div>
             <h2 className="text-xl font-bold text-slate-900">Finalizacja zamówienia</h2>
             <p className="text-xs text-slate-500">
-              Klient: {user.imie} {user.nazwisko} ({user.email})
+              Klient: {user.imie} {user.nazwisko} ({user.identyfikator})
             </p>
           </div>
           <Link to="/koszyk" className="text-xs font-medium text-teal-700 hover:underline">

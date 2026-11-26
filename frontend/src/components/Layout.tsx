@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export const Layout = () => {
   const { count } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, loading, isAuthenticated, isKlient, logout } = useAuth();
 
   return (
     <div className="bg-slate-50 min-h-screen text-slate-800 antialiased">
@@ -23,22 +23,32 @@ export const Layout = () => {
           </Link>
 
           <div className="flex items-center gap-3">
-            {isAuthenticated && user ? (
+            {loading ? (
+              <span className="text-xs text-slate-400 px-2">Sprawdzanie sesji...</span>
+            ) : isAuthenticated && user ? (
               <div className="flex items-center gap-3">
-                <Link
-                  to="/zamowienia"
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
-                >
-                  Moje zamówienia
-                </Link>
+                {isKlient && (
+                  <Link
+                    to="/zamowienia"
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
+                  >
+                    Moje zamówienia
+                  </Link>
+                )}
                 <div className="hidden sm:block text-right">
                   <p className="text-sm font-semibold text-slate-900 leading-tight">
                     {user.imie} {user.nazwisko}
+                    {user.rola && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-[10px] font-semibold uppercase">
+                        {user.rola}
+                      </span>
+                    )}
                   </p>
-                  <p className="text-xs text-slate-500">{user.email}</p>
+                  <p className="text-xs text-slate-500">{user.identyfikator}</p>
                 </div>
                 <button
-                  onClick={logout}
+                  type="button"
+                  onClick={() => void logout()}
                   className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-rose-600 transition-all"
                 >
                   Wyloguj
