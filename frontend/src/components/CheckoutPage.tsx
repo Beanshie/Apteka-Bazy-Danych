@@ -254,19 +254,29 @@ export const CheckoutPage: React.FC = () => {
         }
       }
 
-      // 3. Złożenie zamówienia (POST /api/v1/zamowienia)
-      const orderPayload = {
+      // 3. Utworzenie nagłówka zamówienia (POST /api/v1/zamowienia) i dodanie pozycji
+      const naglowekZamowienia = await zamowieniaService.create({
         id_klienta: user.id_klienta,
         id_adresu: finalAdresId,
-        status_zamowienia: 'NOWE' as const,
-        pozycje: items.map(({ produkt, ilosc }) => ({
-          id_produktu: produkt.id_produktu,
-          ilosc,
-          id_recepty: produkt.wymaga_recepty ? idRecepty : null,
-        })),
-      };
+        status_zamowienia: 'NOWE',
+      });
 
-      const utworzoneZamowienie = await zamowieniaService.create(orderPayload);
+      try {
+        for (const { produkt, ilosc } of items) {
+          await zamowieniaService.addPozycja(naglowekZamowienia.id_zamowienia, {
+            id_produktu: produkt.id_produktu,
+            ilosc,
+            id_recepty: produkt.wymaga_recepty ? idRecepty : null,
+          });
+        }
+      } catch (itemErr) {
+        await zamowieniaService.delete(naglowekZamowienia.id_zamowienia).catch(() => {});
+        throw itemErr;
+      }
+
+      const utworzoneZamowienie = await zamowieniaService.getById(
+        naglowekZamowienia.id_zamowienia,
+      );
 
       // 4. Rejestracja płatności dla zamówienia (POST /api/v1/platnosci)
       try {
