@@ -1,53 +1,74 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Klient, KlientCreate } from '../types/klient';
+import type { AuthLogin, AuthUser } from '../types/auth';
+import type { KlientCreate } from '../types/klient';
+import { authService } from '../services/authService';
 import { klienciService } from '../services/klienciService';
 
 interface AuthValue {
-  user: Klient | null;
+  user: AuthUser | null;
+  loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, haslo?: string) => Promise<Klient>;
-  register: (data: KlientCreate) => Promise<Klient>;
-  logout: () => void;
+  isKlient: boolean;
+  login: (payload: AuthLogin) => Promise<AuthUser>;
+  register: (data: KlientCreate) => Promise<AuthUser>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
-const STORAGE_KEY = 'apteka_user';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<Klient | null>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as Klient) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, [user]);
+    let active = true;
+    authService
+      .me()
+      .then((me) => {
+        if (active) setUser(me);
+      })
+      .catch(() => {
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const value = useMemo<AuthValue>(
     () => ({
       user,
+      loading,
       isAuthenticated: user !== null,
-      login: async (email, haslo) => {
-        const loggedUser = await klienciService.login(email, haslo);
+      isKlient: user?.typ_konta === 'KLIENT',
+      login: async (payload) => {
+        const loggedUser = await authService.login(payload);
         setUser(loggedUser);
         return loggedUser;
       },
       register: async (data) => {
-        const createdUser = await klienciService.create(data);
-        setUser(createdUser);
-        return createdUser;
+        await klienciService.create(data);
+        const loggedUser = await authService.login({
+          typ_konta: 'KLIENT',
+          identyfikator: data.email,
+          haslo: data.haslo,
+        });
+        setUser(loggedUser);
+        return loggedUser;
       },
-      logout: () => setUser(null),
+      logout: async () => {
+        try {
+          await authService.logout();
+        } finally {
+          setUser(null);
+        }
+      },
     }),
-    [user],
+    [user, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
