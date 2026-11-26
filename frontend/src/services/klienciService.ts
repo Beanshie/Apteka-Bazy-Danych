@@ -27,20 +27,4 @@ export const klienciService = {
     delete: async (id: number): Promise<void> => {
         await axios.delete(`${API_URL}/${id}`);
     },
-
-    login: async (email: string, haslo?: string): Promise<Klient> => {
-        const normalizedEmail = email.trim().toLowerCase();
-        if (!normalizedEmail) {
-            throw new Error('Podaj adres e-mail.');
-        }
-        if (haslo !== undefined && !haslo.trim()) {
-            throw new Error('Podaj hasło.');
-        }
-        const klienci = await klienciService.getAll();
-        const klient = klienci.find((k) => k.email.toLowerCase() === normalizedEmail);
-        if (!klient) {
-            throw new Error('Nie znaleziono konta powiązanego z podanym adresem e-mail.');
-        }
-        return klient;
-    },
 };
