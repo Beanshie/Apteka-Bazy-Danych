@@ -48,7 +48,6 @@ paths:
         required: false
         schema:
           type: string
-          maxLength: 20
           enum: &id001
           - NOWA
           - ZWERYFIKOWANA
@@ -192,7 +191,6 @@ components:
           maxLength: 11
         status_recepty:
           type: string
-          maxLength: 20
           default: NOWA
           enum: *id001
       required:
@@ -217,7 +215,6 @@ components:
           maxLength: 11
         status_recepty:
           type: string
-          maxLength: 20
           default: NOWA
           enum:
           - NOWA
@@ -244,7 +241,6 @@ components:
           maxLength: 11
         status_recepty:
           type: string
-          maxLength: 20
           enum:
           - NOWA
           - ZWERYFIKOWANA

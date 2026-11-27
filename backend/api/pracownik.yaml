@@ -161,7 +161,6 @@ components:
           maxLength: 50
         rola:
           type: string
-          maxLength: 30
           default: FARMACEUTA
           enum:
           - FARMACEUTA
@@ -198,7 +197,6 @@ components:
           maxLength: 50
         rola:
           type: string
-          maxLength: 30
           default: FARMACEUTA
           enum:
           - FARMACEUTA
@@ -234,7 +232,6 @@ components:
           maxLength: 50
         rola:
           type: string
-          maxLength: 30
           enum:
           - FARMACEUTA
           - KIEROWNIK

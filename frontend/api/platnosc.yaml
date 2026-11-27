@@ -171,7 +171,6 @@ components:
           maxLength: 30
         status_platnosci:
           type: string
-          maxLength: 30
           default: OCZEKUJACA
           enum:
           - OCZEKUJACA
@@ -204,7 +203,6 @@ components:
           maxLength: 30
         status_platnosci:
           type: string
-          maxLength: 30
           default: OCZEKUJACA
           enum:
           - OCZEKUJACA
@@ -234,7 +232,6 @@ components:
           maxLength: 30
         status_platnosci:
           type: string
-          maxLength: 30
           enum:
           - OCZEKUJACA
           - OPLACONA
