@@ -70,7 +70,7 @@ Niniejszy dokument zawiera specyfikację techniczną oraz opis zastosowań bizne
 
 ---
 
-## 5. Procedura składowana (`PROCEDURE`)
+## 5. Procedury składowana (`PROCEDURE`)
 
 ### 5.1. `sp_zloz_zamowienie`
 * **Specyfikacja:** Hermetyzuje pełny proces rejestracji zamówienia w ramach pojedynczej transakcji z obsługą wyjątków (`DECLARE EXIT HANDLER FOR SQLEXCEPTION` wywołujący `ROLLBACK` i `RESIGNAL`). Obejmuje blokadę pesymistyczną wiersza (`FOR UPDATE`), weryfikację stanu magazynowego, utworzenie nagłówka i pozycji zamówienia, dekrementację stanu magazynowego oraz inicjalizację płatności.
@@ -78,7 +78,14 @@ Niniejszy dokument zawiera specyfikację techniczną oraz opis zastosowań bizne
   * **Kontrola współbieżności:** Blokada `FOR UPDATE` eliminuje zjawisko wyścigu (*race condition*) przy jednoczesnym zakupie ostatnich sztuk tego samego leku.
   * **Atomowość:** Zapewnia zasadę „wszystko albo nic” – błąd na dowolnym etapie (np. brak towaru lub blokada wyzwalacza receptowego) całkowicie wycofuje zmiany, chroniąc bazę przed niespójnością.
   * **Uproszczenie integracji:** Redukuje złożoność kodu backendowego do pojedynczego wywołania `CALL sp_zloz_zamowienie(...)`.
+  
+### 5.2. `sp_archiwizuj_zamowienia(p_data_graniczna)`
+* **Specyfikacja:** Przyjmuje datę graniczną (`DATE`) i w ramach pojedynczej transakcji z obsługą wyjątków (`ROLLBACK` + `RESIGNAL`) tworzy tabele archiwalne (`Archiwum_Zamowien` oraz `Archiwum_Szczegol_Zamowienia` przez `CREATE TABLE IF NOT EXISTS ... LIKE`), kopiuje do nich zamówienia starsze niż podana data wraz ze szczegółami, a następnie usuwa zarchiwizowane rekordy (oraz powiązane płatności) z głównych tabel.
+* **Rola w architekturze systemu:** Umożliwia cykliczne odciążanie głównych tabel produkcyjnych bez utraty danych historycznych, co poprawia wydajność zapytań w miarę wzrostu liczby zamówień.
 
+### 5.3. `sp_wyczysc_baze()`
+* **Specyfikacja:** Tymczasowo wyłącza walidację kluczy obcych (`SET FOREIGN_KEY_CHECKS = 0`), usuwa wszystkie wiersze z tabel bazy danych za pomocą `TRUNCATE TABLE` (zachowując strukturę tabel i resetując liczniki `AUTO_INCREMENT`), a następnie ponownie włącza kontrolę kluczy obcych.
+* **Rola w architekturze systemu:** Narzędzie wspierające środowisko deweloperskie i testowe – pozwala jednym wywołaniem przywrócić bazę do czystego stanu przed ponownym załadowaniem danych testowych (`DBTestData.sql`).
 ---
 
 ## 6. Obsługa transakcji (`COMMIT` i `ROLLBACK`)
