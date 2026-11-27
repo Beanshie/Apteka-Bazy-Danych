@@ -8,6 +8,9 @@ import { CartPage } from './components/CartPage';
 import { CheckoutPage } from './components/CheckoutPage';
 import { OrdersPage } from './components/OrdersPage';
 import { OrderDetailsPage } from './components/OrderDetailsPage';
+import { EmployeeRoute } from './components/EmployeeRoute';
+import { EmployeeOrdersPage } from './components/EmployeeOrdersPage';
+import { EmployeeReceptyPage } from './components/EmployeeReceptyPage';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 
@@ -30,6 +33,22 @@ function App() {
               <Route path="/zamowienie/nowe" element={<CheckoutPage />} />
               <Route path="/zamowienia" element={<OrdersPage />} />
               <Route path="/zamowienia/:id" element={<OrderDetailsPage />} />
+              <Route
+                path="/panel/zamowienia"
+                element={
+                  <EmployeeRoute>
+                    <EmployeeOrdersPage />
+                  </EmployeeRoute>
+                }
+              />
+              <Route
+                path="/panel/recepty"
+                element={
+                  <EmployeeRoute>
+                    <EmployeeReceptyPage />
+                  </EmployeeRoute>
+                }
+              />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/rejestracja" element={<RegisterPage />} />
             </Route>

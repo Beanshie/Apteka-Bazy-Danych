@@ -27,13 +27,28 @@ export const Layout = () => {
               <span className="text-xs text-slate-400 px-2">Sprawdzanie sesji...</span>
             ) : isAuthenticated && user ? (
               <div className="flex items-center gap-3">
-                {isKlient && (
+                {isKlient ? (
                   <Link
                     to="/zamowienia"
                     className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
                   >
                     Moje zamówienia
                   </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/panel/zamowienia"
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
+                    >
+                      Panel zamówień
+                    </Link>
+                    <Link
+                      to="/panel/recepty"
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
+                    >
+                      Recepty
+                    </Link>
+                  </>
                 )}
                 <div className="hidden sm:block text-right">
                   <p className="text-sm font-semibold text-slate-900 leading-tight">

@@ -11,7 +11,7 @@ import type { Produkt } from '../types/produkt';
 import type { AdresKlienta } from '../types/adres_klienta';
 import type { Recepta } from '../types/recepta';
 import type { Platnosc } from '../types/platnosc';
-import { OrderStatusBadge, RxBadge } from './Badges';
+import { OrderStatusBadge, PlatnoscStatusBadge, ReceptaStatusBadge, RxBadge } from './Badges';
 import { zl } from '../utils/format';
 
 const formatDatePl = (iso: string) => {
@@ -157,6 +157,12 @@ export const OrderDetailsPage: React.FC = () => {
     }
   };
 
+  const backTo = user.typ_konta === 'PRACOWNIK' ? '/panel/zamowienia' : '/zamowienia';
+  const backLabel =
+    user.typ_konta === 'PRACOWNIK'
+      ? '← Wróć do panelu zamówień'
+      : '← Wróć do moich zamówień';
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 py-20 flex flex-col items-center justify-center gap-3">
@@ -172,10 +178,10 @@ export const OrderDetailsPage: React.FC = () => {
     return (
       <div className="space-y-4">
         <Link
-          to="/zamowienia"
+          to={backTo}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:underline"
         >
-          ← Wróć do moich zamówień
+          {backLabel}
         </Link>
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-900 space-y-3">
           <h3 className="font-semibold text-rose-950">
@@ -202,10 +208,10 @@ export const OrderDetailsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link
-          to="/zamowienia"
+          to={backTo}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:underline"
         >
-          ← Wróć do moich zamówień
+          {backLabel}
         </Link>
 
         {zamowienie.status_zamowienia === 'NOWE' && (
@@ -273,11 +279,9 @@ export const OrderDetailsPage: React.FC = () => {
               Płatność
             </span>
             {platnosc ? (
-              <div className="text-slate-800">
+              <div className="text-slate-800 space-y-1">
                 <p className="font-semibold">{platnosc.metoda_platnosci}</p>
-                <p className="text-xs text-slate-500">
-                  Status: {platnosc.status_platnosci}
-                </p>
+                <PlatnoscStatusBadge status={platnosc.status_platnosci} />
               </div>
             ) : (
               <p className="text-xs text-slate-500">
@@ -291,15 +295,13 @@ export const OrderDetailsPage: React.FC = () => {
               e-Recepta (Rx)
             </span>
             {usedRecepty.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {usedRecepty.map((r) => (
-                  <div key={r.id_recepty} className="text-slate-800">
+                  <div key={r.id_recepty} className="text-slate-800 space-y-1">
                     <p className="font-mono font-semibold text-xs">
                       Kod: {r.kod_recepty}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      Status: {r.status_recepty}
-                    </p>
+                    <ReceptaStatusBadge status={r.status_recepty} />
                   </div>
                 ))}
               </div>
