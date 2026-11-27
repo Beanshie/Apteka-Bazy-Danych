@@ -11,6 +11,8 @@ import { OrderDetailsPage } from './components/OrderDetailsPage';
 import { EmployeeRoute } from './components/EmployeeRoute';
 import { EmployeeOrdersPage } from './components/EmployeeOrdersPage';
 import { EmployeeReceptyPage } from './components/EmployeeReceptyPage';
+import { EmployeeProductsPage } from './components/EmployeeProductsPage';
+import { EmployeeClientsPage } from './components/EmployeeClientsPage';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 
@@ -46,6 +48,22 @@ function App() {
                 element={
                   <EmployeeRoute>
                     <EmployeeReceptyPage />
+                  </EmployeeRoute>
+                }
+              />
+              <Route
+                path="/panel/produkty"
+                element={
+                  <EmployeeRoute>
+                    <EmployeeProductsPage />
+                  </EmployeeRoute>
+                }
+              />
+              <Route
+                path="/panel/klienci"
+                element={
+                  <EmployeeRoute>
+                    <EmployeeClientsPage />
                   </EmployeeRoute>
                 }
               />
