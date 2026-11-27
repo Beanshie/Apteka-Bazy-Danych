@@ -8,7 +8,7 @@ import type { StatusZamowienia, Zamowienie } from '../types/zamowienie';
 import type { Platnosc, StatusPlatnosci } from '../types/platnosc';
 import type { Klient } from '../types/klient';
 import { OrderStatusBadge, PlatnoscStatusBadge } from './Badges';
-import { zl } from '../utils/format';
+import { formatDatePl, zl } from '../utils/format';
 
 const ORDER_STATUSES: { value: StatusZamowienia; label: string }[] = [
   { value: 'NOWE', label: 'Nowe' },
@@ -25,18 +25,6 @@ const PAYMENT_STATUSES: { value: StatusPlatnosci; label: string }[] = [
   { value: 'NIEUDANA', label: 'Nieudana' },
   { value: 'ZWROCONA', label: 'Zwrócona' },
 ];
-
-const formatDatePl = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('pl-PL', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
 
 export const EmployeeOrdersPage: React.FC = () => {
   const [zamowienia, setZamowienia] = useState<Zamowienie[]>([]);

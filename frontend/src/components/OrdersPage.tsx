@@ -4,19 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { zamowieniaService } from '../services/zamowieniaService';
 import type { Zamowienie } from '../types/zamowienie';
 import { OrderStatusBadge } from './Badges';
-import { zl } from '../utils/format';
-
-const formatDatePl = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('pl-PL', {
-    year: 'numeric',
-    month: 'long',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+import { formatDatePl, zl } from '../utils/format';
 
 export const OrdersPage: React.FC = () => {
   const navigate = useNavigate();

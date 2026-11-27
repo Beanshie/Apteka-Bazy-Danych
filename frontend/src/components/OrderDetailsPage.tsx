@@ -12,19 +12,7 @@ import type { AdresKlienta } from '../types/adres_klienta';
 import type { Recepta } from '../types/recepta';
 import type { Platnosc } from '../types/platnosc';
 import { OrderStatusBadge, PlatnoscStatusBadge, ReceptaStatusBadge, RxBadge } from './Badges';
-import { zl } from '../utils/format';
-
-const formatDatePl = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('pl-PL', {
-    year: 'numeric',
-    month: 'long',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+import { formatDatePl, zl } from '../utils/format';
 
 export const OrderDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -198,6 +186,25 @@ export const OrderDetailsPage: React.FC = () => {
             Spróbuj ponownie
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (user.typ_konta === 'KLIENT' && zamowienie.id_klienta !== user.id) {
+    return (
+      <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-sm border border-slate-200/80 p-8 text-center space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">
+          Brak dostępu do tego zamówienia
+        </h2>
+        <p className="text-sm text-slate-500">
+          To zamówienie nie należy do Twojego konta klienta.
+        </p>
+        <Link
+          to="/zamowienia"
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-all"
+        >
+          Wróć do moich zamówień
+        </Link>
       </div>
     );
   }

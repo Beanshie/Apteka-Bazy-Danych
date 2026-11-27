@@ -9,19 +9,7 @@ import type { AdresKlienta } from '../types/adres_klienta';
 import type { Recepta } from '../types/recepta';
 import type { Zamowienie } from '../types/zamowienie';
 import { OrderStatusBadge, ReceptaStatusBadge } from './Badges';
-import { zl } from '../utils/format';
-
-const formatDatePl = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('pl-PL', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+import { formatDatePl, zl } from '../utils/format';
 
 export const EmployeeClientsPage: React.FC = () => {
   const [klienci, setKlienci] = useState<Klient[]>([]);
