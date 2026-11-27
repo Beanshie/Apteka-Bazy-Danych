@@ -13,6 +13,7 @@ import { EmployeeOrdersPage } from './components/EmployeeOrdersPage';
 import { EmployeeReceptyPage } from './components/EmployeeReceptyPage';
 import { EmployeeProductsPage } from './components/EmployeeProductsPage';
 import { EmployeeClientsPage } from './components/EmployeeClientsPage';
+import { EmployeeReportsPage } from './components/EmployeeReportsPage';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 
@@ -64,6 +65,14 @@ function App() {
                 element={
                   <EmployeeRoute>
                     <EmployeeClientsPage />
+                  </EmployeeRoute>
+                }
+              />
+              <Route
+                path="/raporty"
+                element={
+                  <EmployeeRoute>
+                    <EmployeeReportsPage />
                   </EmployeeRoute>
                 }
               />

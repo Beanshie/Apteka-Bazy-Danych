@@ -60,6 +60,12 @@ export const Layout = () => {
                     >
                       Klienci
                     </Link>
+                    <Link
+                      to="/raporty"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-teal-700 transition-all"
+                    >
+                      Raporty
+                    </Link>
                   </>
                 )}
                 <div className="hidden sm:block text-right">
