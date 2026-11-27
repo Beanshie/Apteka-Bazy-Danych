@@ -249,3 +249,71 @@ WHERE id_zamowienia = 4;
 
 ROLLBACK;
 
+
+-- ---------------- 11. Procedura składowana - Archiwizacja starszych zamówień ----------------
+DROP PROCEDURE IF EXISTS sp_archiwizuj_zamowienia;
+
+DELIMITER //
+CREATE PROCEDURE sp_archiwizuj_zamowienia(
+    IN p_data_graniczna DATE
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    CREATE TABLE IF NOT EXISTS Archiwum_Zamowien LIKE Zamowienie;
+    CREATE TABLE IF NOT EXISTS Archiwum_Szczegol_Zamowienia LIKE Szczegol_Zamowienia;
+
+    START TRANSACTION;
+
+    INSERT INTO Archiwum_Zamowien
+    SELECT *
+    FROM Zamowienie
+    WHERE data_zamowienia < p_data_graniczna;
+
+    INSERT INTO Archiwum_Szczegol_Zamowienia
+    SELECT sz.*
+    FROM Szczegol_Zamowienia sz
+    INNER JOIN Zamowienie z ON sz.id_zamowienia = z.id_zamowienia
+    WHERE z.data_zamowienia < p_data_graniczna;
+
+    DELETE pl
+    FROM Platnosc pl
+    INNER JOIN Zamowienie z ON pl.id_zamowienia = z.id_zamowienia
+    WHERE z.data_zamowienia < p_data_graniczna;
+
+    DELETE sz
+    FROM Szczegol_Zamowienia sz
+    INNER JOIN Zamowienie z ON sz.id_zamowienia = z.id_zamowienia
+    WHERE z.data_zamowienia < p_data_graniczna;
+
+    DELETE FROM Zamowienie
+    WHERE data_zamowienia < p_data_graniczna;
+
+    COMMIT;
+END //
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS sp_wyczysc_baze;
+
+DELIMITER //
+CREATE PROCEDURE sp_wyczysc_baze()
+BEGIN
+    SET FOREIGN_KEY_CHECKS = 0;
+
+    TRUNCATE TABLE Platnosc;
+    TRUNCATE TABLE Szczegol_Zamowienia;
+    TRUNCATE TABLE Zamowienie;
+    TRUNCATE TABLE Recepta;
+    TRUNCATE TABLE Produkt;
+    TRUNCATE TABLE Dostawca;
+    TRUNCATE TABLE Kategoria;
+    TRUNCATE TABLE Adres_Klienta;
+    TRUNCATE TABLE Klient;
+
+    SET FOREIGN_KEY_CHECKS = 1;
+END //
+DELIMITER ;
