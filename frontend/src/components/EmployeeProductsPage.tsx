@@ -590,9 +590,6 @@ export const EmployeeProductsPage: React.FC = () => {
           <span>
             Wyświetlono {filtered.length} z {produkty.length} produktów
           </span>
-          <span className="font-mono text-[11px] text-slate-400">
-            Endpoint: /api/v1/produkty
-          </span>
         </div>
       </div>
     </div>

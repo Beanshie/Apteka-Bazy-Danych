@@ -275,9 +275,6 @@ export const EmployeeReceptyPage: React.FC = () => {
           <span>
             Wyświetlono {filtered.length} z {recepty.length} recept
           </span>
-          <span className="font-mono text-[11px] text-slate-400">
-            Endpoint: /api/v1/recepty
-          </span>
         </div>
       </div>
     </div>

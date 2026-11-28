@@ -7,33 +7,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { RxBadge, StockBadge } from './Badges';
 import { zl } from '../utils/format';
 
-type Status = 'connecting' | 'success' | 'error';
 type RxFilter = 'all' | 'rx' | 'otc';
-
-const STATUS: Record<Status, { badge: string; dot: string; label: string }> = {
-  connecting: {
-    badge: 'bg-amber-50 text-amber-700 border-amber-200',
-    dot: 'bg-amber-500 animate-pulse',
-    label: 'Łączenie z API...',
-  },
-  success: {
-    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    dot: 'bg-emerald-500',
-    label: 'Połączono z API',
-  },
-  error: {
-    badge: 'bg-rose-50 text-rose-700 border-rose-200',
-    dot: 'bg-rose-500',
-    label: 'Błąd połączenia',
-  },
-};
 
 export const ProduktyList: React.FC = () => {
   const navigate = useNavigate();
   const [produkty, setProdukty] = useState<Produkt[]>([]);
   const [kategorie, setKategorie] = useState<Kategoria[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<Status>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selectedKategoria, setSelectedKategoria] = useState<string>('');
@@ -43,7 +23,6 @@ export const ProduktyList: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setStatus('connecting');
     try {
       const [produktyData, kategorieData] = await Promise.all([
         produktyService.getAll(),
@@ -51,11 +30,9 @@ export const ProduktyList: React.FC = () => {
       ]);
       setProdukty(produktyData);
       setKategorie(kategorieData);
-      setStatus('success');
     } catch (err) {
       console.error(err);
       setProdukty([]);
-      setStatus('error');
       setError(err instanceof Error ? err.message : 'Nieznany błąd');
     } finally {
       setLoading(false);
@@ -107,8 +84,6 @@ export const ProduktyList: React.FC = () => {
     });
   }, [produkty, query, selectedKategoria, rxFilter, onlyAvailable]);
 
-  const st = STATUS[status];
-
   return (
     <div className="space-y-6">
       {/* Controls */}
@@ -130,10 +105,6 @@ export const ProduktyList: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${st.badge}`}>
-              <span className={`w-2 h-2 rounded-full ${st.dot}`} />
-              <span>{st.label}</span>
-            </div>
             <button
               onClick={load}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-medium text-sm rounded-xl transition-all shadow-sm hover:shadow-md shadow-teal-600/20"
@@ -198,13 +169,9 @@ export const ProduktyList: React.FC = () => {
       {error && (
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-900">
           <h3 className="font-semibold text-rose-950">
-            Nie udało się pobrać danych (
-            <code className="text-xs bg-rose-100 px-1.5 py-0.5 rounded font-mono">/api/v1/produkty</code>)
+            Nie udało się pobrać listy produktów
           </h3>
           <p className="text-xs sm:text-sm text-rose-800 mt-1">{error}</p>
-          <ul className="text-xs text-rose-800 space-y-1 list-disc pl-4 mt-3">
-            <li>Sprawdź, czy backend działa i czy proxy API jest poprawnie skonfigurowane.</li>
-          </ul>
         </div>
       )}
 
@@ -263,7 +230,6 @@ export const ProduktyList: React.FC = () => {
 
         <div className="bg-slate-50/50 px-4 sm:px-6 py-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
           <span>Wyświetlono {filtered.length} z {produkty.length} pozycji</span>
-          <span className="font-mono text-[11px] text-slate-400">Endpoint: /api/v1/produkty</span>
         </div>
       </div>
     </div>

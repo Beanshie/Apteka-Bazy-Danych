@@ -204,9 +204,6 @@ export const OrdersPage: React.FC = () => {
 
         <div className="bg-slate-50/50 px-4 sm:px-6 py-3 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
           <span>Łącznie zamówień: {sorted.length}</span>
-          <span className="font-mono text-[11px] text-slate-400">
-            Endpoint: /api/v1/zamowienia?id_klienta={user.id}
-          </span>
         </div>
       </div>
     </div>
