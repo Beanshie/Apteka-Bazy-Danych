@@ -409,7 +409,7 @@ export const EmployeeReportsPage: React.FC = () => {
                             {kat ? kat.nazwa_kategorii : `#${p.id_kategorii}`}
                           </td>
                           <td className="py-3.5 px-6 whitespace-nowrap">
-                            <StockBadge qty={p.stan_magazynowy ?? 0} />
+                            <StockBadge qty={p.stan_magazynowy ?? 0} showExactCount={true} />
                           </td>
                           <td className="py-3.5 px-6 text-right font-medium text-slate-900 whitespace-nowrap">
                             {zl(p.cena)}

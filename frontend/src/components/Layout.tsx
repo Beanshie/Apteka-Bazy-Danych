@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { Breadcrumbs } from './Breadcrumbs';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
@@ -319,6 +320,8 @@ export const Layout = () => {
           </div>
         )}
       </aside>
+
+      <Breadcrumbs />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Outlet />

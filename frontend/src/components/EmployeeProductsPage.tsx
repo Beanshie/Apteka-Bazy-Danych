@@ -554,7 +554,7 @@ export const EmployeeProductsPage: React.FC = () => {
                         {zl(produkt.cena)}
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <StockBadge qty={produkt.stan_magazynowy ?? 0} />
+                        <StockBadge qty={produkt.stan_magazynowy ?? 0} showExactCount={true} />
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <RxBadge required={Boolean(produkt.wymaga_recepty)} />
