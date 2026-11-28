@@ -35,6 +35,9 @@ export const Breadcrumbs: React.FC = () => {
     crumbs.push({ label: 'Szczegóły produktu' });
   } else if (pathname === '/login') {
     crumbs.push({ label: 'Logowanie' });
+  } else if (pathname === '/panel/login') {
+    crumbs.push({ label: 'Panel pracownika' });
+    crumbs.push({ label: 'Logowanie' });
   } else if (pathname === '/rejestracja') {
     crumbs.push({ label: 'Rejestracja' });
   } else if (pathname === '/panel/zamowienia') {

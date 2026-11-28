@@ -15,7 +15,7 @@ export const EmployeeRoute = ({ children }: { children?: ReactNode }) => {
   }
 
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/panel/login" replace />;
   }
 
   if (user.typ_konta !== 'PRACOWNIK') {

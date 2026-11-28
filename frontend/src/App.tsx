@@ -76,7 +76,8 @@ function App() {
                   </EmployeeRoute>
                 }
               />
-              <Route path="/login" element={<LoginPage />} />
+              <Route path="/login" element={<LoginPage key="klient" mode="KLIENT" />} />
+              <Route path="/panel/login" element={<LoginPage key="pracownik" mode="PRACOWNIK" />} />
               <Route path="/rejestracja" element={<RegisterPage />} />
             </Route>
           </Routes>

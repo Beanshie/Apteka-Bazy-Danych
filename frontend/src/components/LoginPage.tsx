@@ -6,15 +6,20 @@ import type { TypKonta } from '../types/auth';
 
 const MAX_PASSWORD_BYTES = 72;
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  mode?: TypKonta;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ mode = 'KLIENT' }) => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [typKonta, setTypKonta] = useState<TypKonta>('KLIENT');
   const [identyfikator, setIdentyfikator] = useState('');
   const [haslo, setHaslo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isKlient = mode === 'KLIENT';
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -28,11 +33,11 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await login({
-        typ_konta: typKonta,
+        typ_konta: mode,
         identyfikator: identyfikator.trim(),
         haslo,
       });
-      navigate('/');
+      navigate(isKlient ? '/' : '/panel/zamowienia');
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
@@ -53,47 +58,18 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const isKlient = typKonta === 'KLIENT';
-
   return (
     <div className="max-w-md mx-auto">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold text-slate-900">Zaloguj się</h2>
+          <h2 className="text-xl font-bold text-slate-900">
+            {isKlient ? 'Zaloguj się' : 'Panel personelu'}
+          </h2>
           <p className="text-xs text-slate-500">
-            {isKlient ? 'Wprowadź dane swojego konta klienta' : 'Logowanie do konta pracownika apteki'}
+            {isKlient
+              ? 'Wprowadź dane swojego konta klienta'
+              : 'Logowanie do konta pracownika apteki'}
           </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
-          <button
-            type="button"
-            onClick={() => {
-              setTypKonta('KLIENT');
-              setError(null);
-            }}
-            className={`py-2 rounded-lg text-xs font-semibold transition-all ${
-              isKlient
-                ? 'bg-white text-teal-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Klient
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTypKonta('PRACOWNIK');
-              setError(null);
-            }}
-            className={`py-2 rounded-lg text-xs font-semibold transition-all ${
-              !isKlient
-                ? 'bg-white text-teal-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Pracownik
-          </button>
         </div>
 
         {error && (
@@ -104,7 +80,10 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="identyfikator" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+            <label
+              htmlFor="identyfikator"
+              className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5"
+            >
               {isKlient ? 'Adres e-mail' : 'Login pracownika'}
             </label>
             <input
@@ -120,7 +99,10 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="haslo" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+            <label
+              htmlFor="haslo"
+              className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5"
+            >
               Hasło
             </label>
             <input
@@ -147,11 +129,30 @@ export const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        {isKlient && (
-          <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
-            Nie masz jeszcze konta?{' '}
-            <Link to="/rejestracja" className="font-semibold text-teal-700 hover:underline">
-              Zarejestruj się
+        {isKlient ? (
+          <div className="pt-4 border-t border-slate-100 text-center space-y-3">
+            <p className="text-xs text-slate-500">
+              Nie masz jeszcze konta?{' '}
+              <Link to="/rejestracja" className="font-semibold text-teal-700 hover:underline">
+                Zarejestruj się
+              </Link>
+            </p>
+            <div>
+              <Link
+                to="/panel/login"
+                className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Logowanie dla personelu
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-4 border-t border-slate-100 text-center">
+            <Link
+              to="/login"
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              ← Powrót do logowania klienta
             </Link>
           </div>
         )}
